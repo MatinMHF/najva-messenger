@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ONLINE
+  OFFLINE
+  AWAY
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+  CHANNEL
+  SAVED_MESSAGES
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+  VOICE
+  VIDEO_MESSAGE
+  EMOJI
+  SYSTEM
+}
+
+enum TicketStatus {
+  OPEN
+  RESOLVED
+  CLOSED
+}
+
+enum SenderType {
+  USER
+  ADMIN
+}
+
+model User {
+  id                    String    @id @default(uuid())
+  username              String    @unique
+  passwordHash          String
+  displayName           String?
+  avatarUrl             String?
+  status                UserStatus @default(OFFLINE)
+  storageLimit          BigInt    @default(524288000)
+  storageUsed           BigInt    @default(0)
+  isBlocked             Boolean   @default(false)
+  isSuspended           Boolean   @default(false)
+  suspendReason         String?
+  isAdmin               Boolean   @default(false)
+  totpSecret            String?
+  totpEnabled           Boolean   @default(false)
+  // E2EE account-key material (docs/ENCRYPTION.md).
+  // passwordHash above is bcrypt(loginKey), never bcrypt(raw password).
+  kekSalt               String?
+  kekIterations         Int       @default(600000)
+  mkPasswordWrapped     String?
+  encryptedPrivateKeys  String?
+  mkVersion             Int       @default(1)
+  identityKeyPublic     String?
+  identitySigningPublic String?
+  signedPreKeyPublic    String?
+  signedPreKeySignature String?
+  signedPreKeyId        Int?
+  language              String    @default("fa")
+  theme                 String    @default("dark")
+  bio                   String?
+  lastSeen              DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  preKeys               PreKey[]
+  createdConversations  Conversation[] @relation("CreatedConversations")
+  memberships           ConversationMember[]
+  messages              Message[]
+  supportTickets        SupportTicket[]
+  contacts              Contact[]  @relation("OwnerContacts")
+  contactOf             Contact[]  @relation("ContactOf")
+  recoveryCodeEntries   RecoveryCode[]
+  webauthnCredentials   WebAuthnCredential[]
+  sessions              Session[]
+  conversationKeys      ConversationKey[]
+  pushSubscriptions     PushSubscription[]
+  notifications         Notification[]
+
+  @@index([username])
+}
+
+model RecoveryCode {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifierHash String    @unique
+  wrappedMk    String
+  wrapSalt     String
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model WebAuthnCredential {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    String
+  counter      BigInt    @default(0)
+  transports   String?
+  deviceName   String?
+  prfSupported Boolean   @default(false)
+  prfSalt      String?
+  wrappedMk    String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  prevTokenHash    String?   @unique
+  deviceName       String?
+  userAgent        String?
+  ip               String?
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  @@index([userId])
+}
+
+model ConversationKey {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version        Int
+  wrappedKey     String
+  wrappedById    String
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, userId, version])
+  @@index([userId])
+  @@index([conversationId, version])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Notification {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind           String
+  conversationId String?
+  actorId        String?
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  @@index([userId, createdAt])
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation("OwnerContacts", fields: [ownerId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   User     @relation("ContactOf", fields: [contactId], references: [id], onDelete: Cascade)
+  alias     String?
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, contactId])
+  @@index([ownerId])
+}
+
+model PreKey {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyId     Int
+  publicKey String
+  used      Boolean @default(false)
+
+  @@index([userId])
+}
+
+model Conversation {
+  id                String           @id @default(uuid())
+  type              ConversationType
+  name              String?
+  avatarUrl         String?
+  createdById       String
+  createdBy         User             @relation("CreatedConversations", fields: [createdById], references: [id])
+  currentKeyVersion Int              @default(1)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  members     ConversationMember[]
+  messages    Message[]
+  keys        ConversationKey[]
+}
+
+model ConversationMember {
+  id                String     @id @default(uuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role              MemberRole @default(MEMBER)
+  joinedAt          DateTime   @default(now())
+  lastReadMessageId String?
+  isRemoved         Boolean    @default(false)
+  isMuted           Boolean    @default(false)
+  isHidden          Boolean    @default(false)
+  isBlocked         Boolean    @default(false)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id                String       @id @default(uuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId          String
+  sender            User         @relation(fields: [senderId], references: [id])
+  type              MessageType
+  encryptedContent  String
+  iv                String?
+  ephemeralKey      String?
+  senderKeyVersion  Int?
+  replyToId         String?
+  replyTo           Message?     @relation("Replies", fields: [replyToId], references: [id])
+  replies           Message[]    @relation("Replies")
+  isForwarded       Boolean      @default(false)
+  isSystemPlaintext Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  attachments       Attachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model Attachment {
+  id            String   @id @default(uuid())
+  messageId     String?
+  message       Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName      String
+  filePath      String
+  fileSize      BigInt
+  mimeType      String
+  encryptedKey  String?
+  thumbnailPath String?
+  duration      Float?
+  width         Int?
+  height        Int?
+  createdAt     DateTime @default(now())
+}
+
+model SupportTicket {
+  id              String         @id @default(uuid())
+  sessionToken    String         @unique
+  username        String
+  status          TicketStatus   @default(OPEN)
+  assignedAdminId String?
+  assignedAdmin   User?          @relation(fields: [assignedAdminId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  messages        SupportMessage[]
+
+  @@index([sessionToken])
+}
+
+model SupportMessage {
+  id         String       @id @default(uuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId   String?
+  senderType SenderType
+  content    String
+  createdAt  DateTime     @default(now())
+}
