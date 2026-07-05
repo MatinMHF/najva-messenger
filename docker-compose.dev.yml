@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  server:
+    volumes:
+      - ./server/src:/app/src
+    command: npm run dev
+    environment:
+      - NODE_ENV=development
+      - CORS_ORIGIN=*
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./client/src:/app/src
+      - ./client/vite.config.ts:/app/vite.config.ts
+      - ./client/index.html:/app/index.html
+    command: npm run dev -- --host
+    ports:
+      - "80:5173"
+
+  media-server:
+    volumes:
+      - ./media-server/src:/app/src
+    command: npm run dev
+    ports:
+      - "4443:4443"
+
+  nginx:
+    profiles:
+      - donotstart
