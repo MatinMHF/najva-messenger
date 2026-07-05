@@ -13,7 +13,8 @@
 
 # Najva · نجوا
 
-**A secure, self-hosted, end-to-end encrypted messenger**
+**A secure, self-hosted, end-to-end encrypted messenger**  
+**یک پیام‌رسان امن، خودمیزبان و رمزنگاری‌شده سرتاسر**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org)
@@ -21,217 +22,260 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg)](https://www.typescriptlang.org)
 
-[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [Installation](#-installation) · [Security](#-security) · [Contributing](#-contributing)
-
 </div>
 
 ---
 
-## 🌟 Overview
-
-Najva (نجوا, Persian for *whisper*) is a fully self-hosted, **end-to-end encrypted** messaging platform. Every message, file, and attachment is encrypted on the client before it ever reaches the server — the server (and anyone with access to it) can only see ciphertext.
-
-Built for teams and individuals who need **privacy without compromising usability**.
+> 🌐 **Language / زبان:** &nbsp; [🇮🇷 فارسی](#-نجوا--پیام‌رسان-امن-خودمیزبان) &nbsp;|&nbsp; [🇬🇧 English](#-najva--secure-self-hosted-messenger)
 
 ---
 
-## ✨ Features
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════  PERSIAN / فارسی  ══════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+
+## 🇮🇷 نجوا — پیام‌رسان امن خودمیزبان
+
+نجوا یک پلتفرم پیام‌رسانی **رمزنگاری‌شده سرتاسر (E2EE)** و کاملاً خودمیزبان است. هر پیام، فایل و پیوست قبل از ارسال به سرور روی مرورگر کاربر رمزنگاری می‌شود — سرور (و هر کسی که به آن دسترسی دارد) فقط متن رمزنگاری‌شده می‌بیند.
+
+### ✨ ویژگی‌ها
+
+| دسته | ویژگی |
+|---|---|
+| 💬 **پیام‌رسانی** | پیام متنی، فایل، صوت و تصویر بلادرنگ |
+| 🔐 **امنیت** | E2EE سمت کلاینت (AES-256-GCM + X25519 sealed box) |
+| 📞 **تماس** | تماس صوتی/تصویری WebRTC از طریق mediasoup SFU |
+| 👥 **مکالمات** | مستقیم، گروهی، کانال، و پیام‌های ذخیره‌شده |
+| 🔑 **احراز هویت** | رمزعبور + احراز دو مرحله‌ای TOTP + Passkey (WebAuthn) |
+| 🔄 **بازیابی** | کدهای بازیابی، passkey، انتقال دستگاه به دستگاه |
+| 🌐 **زبان** | فارسی و انگلیسی، پشتیبانی RTL/LTR |
+| 🎨 **تم** | حالت تاریک و روشن |
+| 👤 **ادمین** | مدیریت کاربران، سیستم تیکت پشتیبانی |
+
+### 🚀 نصب سریع — بدون نیاز به دانلود سورس
+
+> فقط Docker باید روی سیستم شما نصب باشد.
+
+#### 🐧 Linux / macOS
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-linux.sh)
+```
+
+اسکریپت به‌صورت خودکار:
+- Docker را نصب می‌کند (اگر نباشد) — Debian/Ubuntu، RHEL/Fedora، Arch پشتیبانی می‌شوند
+- فایل `.env` با secretهای تصادفی ایجاد می‌کند
+- سرویس‌ها را build و راه‌اندازی می‌کند
+- آدرس `http://localhost` را در مرورگر باز می‌کند
+
+#### 🪟 Windows (PowerShell به‌عنوان Administrator)
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; `
+irm https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-windows.ps1 | iex
+```
+
+اسکریپت به‌صورت خودکار:
+- Docker Desktop را نصب می‌کند (از طریق winget)
+- فایل `.env` با secretهای تصادفی امن ایجاد می‌کند
+- سرویس‌ها را build و راه‌اندازی می‌کند
+
+#### 🐳 نصب دستی (همه سیستم‌ها)
+
+```bash
+# دانلود فایل‌های پیکربندی
+mkdir najva && cd najva
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/.env.example  -o .env
+mkdir -p nginx turn
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/nginx/nginx.conf -o nginx/nginx.conf
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/turn/turnserver.conf -o turn/turnserver.conf
+
+# ویرایش .env و تنظیم secretها
+# سپس:
+docker compose up -d
+```
+
+### 🏗️ معماری
+
+```
+┌─────────────────────────────────────┐
+│         کلاینت‌ها (React)            │
+└──────────────────┬──────────────────┘
+                   │ HTTPS / WSS
+┌──────────────────▼──────────────────┐
+│         Nginx Reverse Proxy          │
+└────────┬────────────────────┬────────┘
+         │                    │
+┌────────▼──────┐  ┌──────────▼──────────┐
+│  Client       │  │  Server (Node.js)    │
+│  (Static)     │  │  Express + Socket.IO │
+└───────────────┘  └────────┬────────────┘
+                            │
+              ┌─────────────┼──────────┐
+              │             │          │
+        ┌─────▼────┐  ┌────▼───┐  ┌───▼────────────┐
+        │PostgreSQL│  │ Redis  │  │ Media (mediasoup│
+        └──────────┘  └────────┘  │ + coturn TURN)  │
+                                  └─────────────────┘
+```
+
+### 🔐 امنیت — سلسله مراتب کلیدها
+
+```
+رمزعبور ──PBKDF2-SHA256 (600k iter)──▶ PRK
+   ├── HKDF → KEK   (هرگز از کلاینت خارج نمی‌شود)
+   └── HKDF → loginKey (bcrypt شده روی سرور)
+
+Master Key (MK، 32 بایت تصادفی)
+   ├── رمزنگاری‌شده با KEK  → ذخیره روی سرور
+   ├── رمزنگاری‌شده با کدهای بازیابی (×8)
+   ├── رمزنگاری‌شده با PRF خروجی Passkey
+   └── کلیدهای هویت را رمزنگاری می‌کند (X25519 + Ed25519)
+
+Conversation Key (CK، 32 بایت، به‌ازای هر مکالمه)
+   ├── sealed به کلید عمومی X25519 هر عضو
+   └── AES-256-GCM همه پیام‌ها و فایل‌ها را رمزنگاری می‌کند
+```
+
+جزئیات کامل: [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md)
+
+### 🛠️ توسعه
+
+```bash
+git clone https://github.com/MatinMHF/najva-messenger.git
+cd najva-messenger
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### 📋 متغیرهای محیطی مهم
+
+| متغیر | توضیح |
+|---|---|
+| `JWT_SECRET` | کلید امضای access token (حداقل 32 بایت تصادفی) |
+| `JWT_REFRESH_SECRET` | کلید امضای refresh token |
+| `POSTGRES_PASSWORD` | رمزعبور دیتابیس |
+| `TURN_SECRET` | کلید مشترک سرور TURN |
+| `MEDIASOUP_ANNOUNCED_IP` | IP عمومی سرور (برای production) |
+
+---
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════  ENGLISH  ══════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+
+## 🇬🇧 Najva — Secure Self-Hosted Messenger
+
+Najva (نجوا, Persian for *whisper*) is a fully self-hosted, **end-to-end encrypted** messaging platform. Every message, file, and attachment is encrypted on the client before it ever reaches the server — the server sees only ciphertext.
+
+### ✨ Features
 
 | Category | Feature |
 |---|---|
 | 💬 **Messaging** | Real-time text, file, voice & video messages |
 | 🔐 **Security** | Client-side E2EE (AES-256-GCM + X25519 sealed box) |
 | 📞 **Calls** | WebRTC voice & video via mediasoup SFU |
-| 👥 **Conversations** | Direct, Group, Channel, and Saved Messages |
+| 👥 **Conversations** | Direct, Group, Channel, Saved Messages |
 | 🔑 **Auth** | Password + TOTP 2FA + Passkey (WebAuthn) |
-| 🔄 **Recovery** | Recovery codes, passkey, device-to-device transfer |
-| 🌐 **i18n** | Persian (فارسی) and English, RTL/LTR aware |
+| 🔄 **Recovery** | Recovery codes, passkey PRF, device-to-device transfer |
+| 🌐 **i18n** | Persian (فارسی) & English, RTL/LTR aware |
 | 🎨 **Themes** | Dark and Light mode |
 | 👤 **Admin** | User management, support ticket system |
-| 📁 **Files** | Encrypted file uploads with per-attachment keys |
-| 🟢 **Presence** | Online/offline/away status via Socket.IO |
-| 🔔 **Notifications** | Push notification infrastructure |
 
----
+### 🚀 Quick Install — No Source Download Needed
 
-## 🏗 Architecture
+> Only Docker is required on your machine.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                        Clients                           │
-│           (React + TypeScript + Zustand)                 │
-└─────────────────────┬────────────────────────────────────┘
-                      │ HTTPS / WSS
-┌─────────────────────▼────────────────────────────────────┐
-│                  Nginx Reverse Proxy                     │
-└──────┬──────────────────────────────────────┬────────────┘
-       │                                      │
-┌──────▼──────┐                    ┌──────────▼───────────┐
-│   Client    │                    │  Server (Node.js)    │
-│  (Static)   │                    │  Express + Socket.IO │
-└─────────────┘                    └──────┬──────┬────────┘
-                                          │      │
-                              ┌───────────▼┐  ┌──▼──────┐
-                              │ PostgreSQL  │  │  Redis  │
-                              └────────────┘  └─────────┘
-                                          │
-                              ┌───────────▼───────────┐
-                              │  Media Server         │
-                              │  (mediasoup SFU)      │
-                              └───────────────────────┘
-                                          │
-                              ┌───────────▼───────────┐
-                              │  TURN Server (coturn)  │
-                              └───────────────────────┘
-```
-
-### Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TypeScript, Vite, Zustand, Socket.IO Client |
-| Backend | Node.js, Express, Socket.IO, Prisma ORM |
-| Database | PostgreSQL 16 |
-| Cache / Pub-Sub | Redis 7 |
-| Media | mediasoup 3 (SFU), coturn (TURN) |
-| Crypto | WebCrypto API, TweetNaCl (X25519 / Ed25519) |
-| Proxy | Nginx |
-| Container | Docker + Docker Compose |
-
----
-
-## 🔐 Security
-
-Najva implements a **layered key hierarchy** so the server never has access to plaintext:
-
-```
-password ──PBKDF2-SHA256 (600k iters)──► PRK
-   ├── HKDF → KEK   (never leaves client)
-   └── HKDF → loginKey (bcrypt'd on server)
-
-Master Key (MK, 32B random)
-   ├── wrapped by KEK  → stored server-side
-   ├── wrapped by Recovery Key Wrapping Key (×8 codes)
-   ├── wrapped by Passkey PRF output
-   └── encrypts identity keys (X25519 + Ed25519)
-
-Conversation Key (CK, 32B random)
-   ├── sealed to each member's X25519 public key
-   └── AES-256-GCM encrypts every message & file
-```
-
-See [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md) for the full threat model, key flows, and design decisions.
-
-**Account recovery options (history preserved):**
-- 🔑 Recovery codes (8 × 128-bit, Crockford Base32)
-- 🔐 WebAuthn Passkey with PRF extension
-- 📱 Device-to-device transfer (ephemeral X25519, word-fingerprint MITM check)
-- 🆘 Admin-gated cryptographic reset (history lost — explicit warning)
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) ≥ 24
-- [Docker Compose](https://docs.docker.com/compose/install/) ≥ 2
-
-### Run in 3 steps
+#### 🐧 Linux / macOS
 
 ```bash
-# 1. Clone
-git clone https://github.com/MatinMHF/najva-messenger.git
-cd najva-messenger
-
-# 2. Configure
-cp .env.example .env
-# Edit .env — at minimum set strong secrets for JWT_SECRET, JWT_REFRESH_SECRET,
-# POSTGRES_PASSWORD, and TURN_SECRET.
-
-# 3. Start
-docker compose up -d
+bash <(curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-linux.sh)
 ```
 
-Open **http://localhost** in your browser. 🎉
+The script will automatically:
+- Install Docker if missing (supports Debian/Ubuntu, RHEL/Fedora, Arch)
+- Generate cryptographically random secrets in `.env`
+- Build and start all services
+- Open `http://localhost` in your browser
 
----
-
-## 📦 Installation
-
-### Windows
+#### 🪟 Windows (PowerShell as Administrator)
 
 ```powershell
-# Run as Administrator
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\install\install-windows.ps1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; `
+irm https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-windows.ps1 | iex
 ```
 
-The script will:
-- Check and install Docker Desktop if missing
+The script will automatically:
+- Install Docker Desktop via winget
 - Generate secure random secrets in `.env`
-- Build and start all services
-- Open the app in your default browser
-
-### Linux / macOS
-
-```bash
-bash install/install-linux.sh
-```
-
-The script will:
-- Detect your distro (Debian/Ubuntu, RHEL/Fedora, Arch) and install Docker
-- Generate cryptographically random secrets
 - Build and launch all services
 
-### Manual
+#### 🐳 Manual Install (any OS)
 
 ```bash
-git clone https://github.com/MatinMHF/najva-messenger.git
-cd najva-messenger
-cp .env.example .env
-# Fill in .env values
-docker compose up --build -d
+# Download only the config files — no full clone needed
+mkdir najva && cd najva
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/.env.example  -o .env
+mkdir -p nginx turn
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/nginx/nginx.conf -o nginx/nginx.conf
+curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/turn/turnserver.conf -o turn/turnserver.conf
+
+# Edit .env — set strong secrets for JWT_SECRET, JWT_REFRESH_SECRET,
+# POSTGRES_PASSWORD, TURN_SECRET, and MEDIASOUP_ANNOUNCED_IP (your server IP)
+
+docker compose up -d
+# Open http://localhost
 ```
 
----
+### 🏗️ Architecture
 
-## 🛠 Development
-
-```bash
-# Hot-reload development mode
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-
-# Run server tests
-cd server && npm test
-
-# Run client tests  
-cd client && npm test
-
-# Database seed (dev only)
-cd server && npm run seed
+```
+┌─────────────────────────────────────────────┐
+│              Clients (React 19)              │
+└──────────────────────┬──────────────────────┘
+                       │ HTTPS / WSS
+┌──────────────────────▼──────────────────────┐
+│             Nginx Reverse Proxy              │
+└───────┬──────────────────────────┬──────────┘
+        │                          │
+┌───────▼───────┐      ┌───────────▼───────────┐
+│  Client App   │      │   Server (Node.js)     │
+│  (Static)     │      │   Express + Socket.IO  │
+└───────────────┘      └──────────┬─────────────┘
+                                  │
+               ┌──────────────────┼───────────────┐
+               │                  │               │
+        ┌──────▼──────┐   ┌───────▼───┐  ┌────────▼──────────┐
+        │ PostgreSQL  │   │   Redis   │  │  Media Server     │
+        │     16      │   │     7     │  │  mediasoup + TURN │
+        └─────────────┘   └───────────┘  └───────────────────┘
 ```
 
-### Environment Variables
+### 🔐 Security — Key Hierarchy
 
-See [`.env.example`](.env.example) for all available variables with descriptions.
+```
+password ──PBKDF2-SHA256 (600k iters)──▶ PRK
+   ├── HKDF → KEK   (never leaves the client)
+   └── HKDF → loginKey (bcrypt'd on server)
 
-**Required secrets (must be changed before production):**
+Master Key (MK, 32B random, per user)
+   ├── AES-256-GCM wrapped by KEK  → stored server-side
+   ├── AES-256-GCM wrapped by Recovery Key (×8 codes)
+   ├── AES-256-GCM wrapped by Passkey PRF output
+   └── encrypts identity keys (X25519 + Ed25519)
 
-| Variable | Description |
-|---|---|
-| `JWT_SECRET` | Access token signing key (≥ 32 random bytes) |
-| `JWT_REFRESH_SECRET` | Refresh token signing key (≥ 32 random bytes) |
-| `POSTGRES_PASSWORD` | Database password |
-| `TURN_SECRET` | TURN server shared secret |
+Conversation Key (CK, 32B random, per conversation)
+   ├── sealed to each member's X25519 public key
+   └── AES-256-GCM encrypts all messages & file keys
+```
 
----
+Full threat model and flow details: [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md)
 
-## 🚢 Production Deployment
+### 🌐 Production Deployment
 
-1. **Provision a server** — Ubuntu 22/24 LTS recommended, ≥ 2 CPU, ≥ 4 GB RAM.
-
-2. **Open firewall ports:**
+Open firewall ports:
 
 | Port | Protocol | Service |
 |---|---|---|
@@ -243,64 +287,51 @@ See [`.env.example`](.env.example) for all available variables with descriptions
 | 2000–2020 | UDP | mediasoup RTC |
 | 49152–49200 | UDP | coturn RTP relay |
 
-3. **Configure `.env`** with production values, including `MEDIASOUP_ANNOUNCED_IP` set to your server's public IP.
+Set `MEDIASOUP_ANNOUNCED_IP` to your server's public IP in `.env`, then:
 
-4. **Enable TLS** — update `nginx/nginx.conf` with your SSL certificate paths.
-
-5. **Deploy:**
 ```bash
 docker compose up --build -d
 ```
 
----
+### 🛠️ Development
 
-## 📁 Project Structure
+```bash
+git clone https://github.com/MatinMHF/najva-messenger.git
+cd najva-messenger
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### 📁 Project Structure
 
 ```
 najva-messenger/
-├── client/              # React frontend (Vite + TypeScript)
-│   ├── src/
-│   │   ├── components/  # UI components (auth, chat, common, layout)
-│   │   ├── lib/crypto/  # E2EE: primitives, ratchet, X3DH, session
-│   │   ├── pages/       # Route-level pages
-│   │   ├── store/       # Zustand state stores
-│   │   └── i18n/        # FA/EN translations
-│   └── Dockerfile
+├── client/              # React 19 + Vite + TypeScript frontend
+│   └── src/
+│       ├── components/  # UI components (auth, chat, common, layout)
+│       ├── lib/crypto/  # E2EE: primitives, ratchet, X3DH, session
+│       ├── pages/       # Route-level pages
+│       ├── store/       # Zustand state stores
+│       └── i18n/        # FA / EN translations
 ├── server/              # Node.js API + Socket.IO
-│   ├── src/
-│   │   ├── controllers/ # HTTP request handlers
-│   │   ├── services/    # Business logic
-│   │   ├── routes/      # Express routers
-│   │   ├── socket/      # Real-time event handlers
-│   │   └── middleware/  # Auth, rate-limit, upload, validate
-│   ├── prisma/          # Database schema & migrations
-│   └── Dockerfile
-├── media-server/        # mediasoup SFU server
+│   ├── src/             # TypeScript source
+│   └── prisma/          # Database schema & migrations
+├── media-server/        # mediasoup SFU (WebRTC)
 ├── nginx/               # Reverse proxy config
 ├── turn/                # coturn TURN server config
-├── docs/                # ENCRYPTION.md and design docs
-├── install/             # One-click install scripts
-│   ├── install-windows.ps1
-│   └── install-linux.sh
+├── docs/                # ENCRYPTION.md design doc
+├── install/             # One-click installers
+│   ├── install-linux.sh
+│   └── install-windows.ps1
 ├── docker-compose.yml
 ├── docker-compose.dev.yml
 └── .env.example
 ```
 
----
+### 🤝 Contributing
 
-## 🤝 Contributing
+Pull requests are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Pull requests are welcome! For major changes, please open an issue first.
-
-1. Fork the repository
-2. Create your branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'feat: add amazing feature'`
-4. Push: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
----
-
-## 📄 License
+### 📄 License
 
 [MIT](LICENSE) © 2026 MatinMHF
