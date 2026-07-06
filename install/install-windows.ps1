@@ -3,24 +3,24 @@
 .SYNOPSIS
     Najva Messenger — One-click installer for Windows
 .DESCRIPTION
-    Installs Docker Desktop if needed, generates secure .env secrets,
-    builds and starts all Najva services via Docker Compose.
+    Downloads config files from GitHub (no clone needed), installs Docker Desktop
+    if missing, generates secure .env secrets, and starts all Najva services.
 .NOTES
-    Run as Administrator:
+    Run in PowerShell as Administrator:
         Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-        .\install\install-windows.ps1
+        irm https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-windows.ps1 | iex
 #>
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ---- Colours ----
-function Write-Step  { param([string]$msg) Write-Host "`n[>>] $msg" -ForegroundColor Cyan }
-function Write-OK    { param([string]$msg) Write-Host "[OK] $msg" -ForegroundColor Green }
-function Write-Warn  { param([string]$msg) Write-Host "[!!] $msg" -ForegroundColor Yellow }
-function Write-Fatal { param([string]$msg) Write-Host "[XX] $msg" -ForegroundColor Red; exit 1 }
+$RAW = 'https://raw.githubusercontent.com/MatinMHF/najva-messenger/main'
 
-# ---- Banner ----
+function Write-Step  { param([string]$m) Write-Host "`n[>>] $m" -ForegroundColor Cyan }
+function Write-OK    { param([string]$m) Write-Host "[OK] $m" -ForegroundColor Green }
+function Write-Warn  { param([string]$m) Write-Host "[!!] $m" -ForegroundColor Yellow }
+function Write-Fatal { param([string]$m) Write-Host "[XX] $m" -ForegroundColor Red; exit 1 }
+
 Write-Host @"
 
   _   _        _
@@ -35,137 +35,132 @@ Write-Host @"
   Najva Messenger — Windows Installer
 "@ -ForegroundColor Magenta
 
-# ---- Helpers ----
 function New-RandomSecret {
     param([int]$bytes = 32)
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
     $buf = New-Object byte[] $bytes
     $rng.GetBytes($buf)
-    return [System.BitConverter]::ToString($buf).Replace('-', '').ToLower()
+    return [System.BitConverter]::ToString($buf).Replace('-','').ToLower()
 }
 
-function Test-CommandExists {
-    param([string]$cmd)
-    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
+function Test-Cmd { param([string]$c) return [bool](Get-Command $c -ErrorAction SilentlyContinue) }
+
+# ---- Administrator check ----------------------------------------------------
+$p = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Fatal "Please run PowerShell as Administrator and try again."
 }
 
-# ---- Root check ----
-$currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
-if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Fatal "Please run this script as Administrator."
-}
-
-# ---- Step 1: Docker ----
+# ---- Step 1: Docker ---------------------------------------------------------
 Write-Step "Checking Docker..."
 
-if (Test-CommandExists 'docker') {
-    $dockerVersion = (docker version --format '{{.Server.Version}}' 2>$null)
-    Write-OK "Docker found: v$dockerVersion"
+if (Test-Cmd 'docker') {
+    $v = docker version --format '{{.Server.Version}}' 2>$null
+    Write-OK "Docker v$v found."
 } else {
-    Write-Warn "Docker not found. Installing Docker Desktop..."
-
-    if (Test-CommandExists 'winget') {
+    Write-Warn "Docker not found. Installing Docker Desktop via winget..."
+    if (Test-Cmd 'winget') {
         winget install --id Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements
     } else {
-        # Fallback: download installer
-        $installerUrl = 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'
-        $installerPath = "$env:TEMP\DockerDesktopInstaller.exe"
-        Write-Host "    Downloading Docker Desktop..."
-        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
-        Start-Process -FilePath $installerPath -ArgumentList 'install', '--quiet', '--accept-license' -Wait
-        Remove-Item $installerPath -Force
+        $tmp = "$env:TEMP\DockerDesktopInstaller.exe"
+        Write-Host "    Downloading Docker Desktop installer..."
+        Invoke-WebRequest 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe' -OutFile $tmp -UseBasicParsing
+        Start-Process -FilePath $tmp -ArgumentList 'install','--quiet','--accept-license' -Wait
+        Remove-Item $tmp -Force
     }
-
-    # Refresh PATH
-    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
-                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-
-    if (-not (Test-CommandExists 'docker')) {
-        Write-Warn "Docker Desktop was installed. Please restart your computer, then run this script again."
+    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','Machine') + ';' +
+                [System.Environment]::GetEnvironmentVariable('PATH','User')
+    if (-not (Test-Cmd 'docker')) {
+        Write-Warn "Docker Desktop installed. Please restart your PC then re-run this script."
         exit 0
     }
     Write-OK "Docker Desktop installed."
 }
 
-# Ensure Docker daemon is running
-try {
-    docker info 2>&1 | Out-Null
-    Write-OK "Docker daemon is running."
-} catch {
-    Write-Warn "Docker Desktop doesn't seem to be running. Attempting to start it..."
-    $dockerPath = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
-    if (Test-Path $dockerPath) {
-        Start-Process $dockerPath
-        Write-Host "    Waiting 30 s for Docker to start..."
-        Start-Sleep -Seconds 30
-    } else {
-        Write-Fatal "Please start Docker Desktop manually and re-run this script."
-    }
+try { docker info 2>&1 | Out-Null; Write-OK "Docker daemon running." }
+catch {
+    $dockerExe = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
+    if (Test-Path $dockerExe) {
+        Write-Warn "Starting Docker Desktop..."
+        Start-Process $dockerExe
+        Write-Host "    Waiting 40 s for daemon..."
+        Start-Sleep 40
+    } else { Write-Fatal "Start Docker Desktop manually then re-run." }
 }
 
-# ---- Step 2: Move to repo root ----
-$repoRoot = Split-Path -Parent $PSScriptRoot
-Set-Location $repoRoot
-Write-OK "Working directory: $repoRoot"
+# ---- Step 2: Install directory ----------------------------------------------
+$InstallDir = if ($env:NAJVA_DIR) { $env:NAJVA_DIR } else { "$env:USERPROFILE\najva" }
+Write-Step "Creating install directory: $InstallDir"
+New-Item -ItemType Directory -Force -Path "$InstallDir\nginx" | Out-Null
+New-Item -ItemType Directory -Force -Path "$InstallDir\turn"  | Out-Null
+Set-Location $InstallDir
+Write-OK "Working directory: $InstallDir"
 
-# ---- Step 3: .env ----
+# ---- Step 3: Download config files ------------------------------------------
+Write-Step "Downloading configuration files from GitHub..."
+
+$files = @{
+    'docker-compose.yml'   = 'docker-compose.yml'
+    '.env.example'         = '.env.example'
+    'nginx/nginx.conf'     = 'nginx\nginx.conf'
+    'turn/turnserver.conf' = 'turn\turnserver.conf'
+}
+
+foreach ($remote in $files.Keys) {
+    $local = $files[$remote]
+    Invoke-WebRequest "$RAW/$remote" -OutFile $local -UseBasicParsing
+    Write-Host "    Downloaded $local"
+}
+Write-OK "Config files downloaded."
+
+# ---- Step 4: .env -----------------------------------------------------------
 Write-Step "Configuring environment..."
 
 if (Test-Path '.env') {
-    Write-Warn ".env already exists — skipping secret generation to avoid overwriting."
-    Write-Warn "Delete .env and re-run if you want fresh secrets."
+    Write-Warn ".env already exists — skipping secret generation."
 } else {
-    if (-not (Test-Path '.env.example')) {
-        Write-Fatal ".env.example not found. Are you running from the repo root?"
-    }
-
-    $jwtSecret     = New-RandomSecret 32
-    $jwtRefresh    = New-RandomSecret 32
-    $dbPassword    = New-RandomSecret 24
-    $turnSecret    = New-RandomSecret 24
+    $jwtSecret  = New-RandomSecret 32
+    $jwtRefresh = New-RandomSecret 32
+    $dbPassword = New-RandomSecret 24
+    $turnSecret = New-RandomSecret 24
 
     (Get-Content '.env.example') `
-        -replace 'change_me_strong_password', $dbPassword `
-        -replace 'change_me_32_random_bytes_minimum', $jwtSecret `
-        -replace 'change_me_another_32_random_bytes', $jwtRefresh `
-        -replace 'change_me_turn_secret', $turnSecret `
+        -replace 'change_me_strong_password',          $dbPassword `
+        -replace 'change_me_32_random_bytes_minimum',  $jwtSecret `
+        -replace 'change_me_another_32_random_bytes',  $jwtRefresh `
+        -replace 'change_me_turn_secret',              $turnSecret `
         | Set-Content '.env'
 
-    # Update DATABASE_URL too
-    (Get-Content '.env') `
-        -replace 'postgresql://najva:change_me_strong_password@', "postgresql://najva:${dbPassword}@" `
-        | Set-Content '.env'
+    # Fix DATABASE_URL too
+    (Get-Content '.env') -replace `
+        'postgresql://najva:change_me_strong_password@', `
+        "postgresql://najva:${dbPassword}@" | Set-Content '.env'
 
     Write-OK ".env created with generated secrets."
-    Write-Warn "Back up your .env file! Losing it means losing access to encrypted data."
+    Write-Warn "Back up $InstallDir\.env — losing it means losing access to encrypted data."
 }
 
-# ---- Step 4: Build & Start ----
-Write-Step "Building and starting Najva services (this may take a few minutes)..."
-docker compose up --build -d
+# ---- Step 5: Pull & Start ---------------------------------------------------
+Write-Step "Pulling images and starting Najva services (first run may take several minutes)..."
+docker compose up -d --pull always
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Fatal "docker compose failed. Check the output above for errors."
-}
+if ($LASTEXITCODE -ne 0) { Write-Fatal "docker compose failed. See output above." }
 
-# ---- Step 5: Health check ----
-Write-Step "Waiting for services to be healthy..."
-$maxWait = 60
-$waited  = 0
+# ---- Step 6: Health check ---------------------------------------------------
+Write-Step "Waiting for services to become healthy..."
+$waited = 0
 do {
-    Start-Sleep -Seconds 5
-    $waited += 5
-    $health = docker compose ps --format json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
-} while ($waited -lt $maxWait -and -not ($health | Where-Object { $_.Name -like '*server*' -and $_.Status -like '*healthy*' }))
+    Start-Sleep 5; $waited += 5
+    $ps = docker compose ps --format json 2>$null
+} while ($waited -lt 60 -and -not ($ps -match 'healthy'))
 
-# ---- Done ----
+# ---- Done -------------------------------------------------------------------
 Write-Host ""
 Write-OK "====================================="
-Write-OK "  Najva is running!  "
-Write-OK "  Open: http://localhost            "
+Write-OK "  Najva is running!"
+Write-OK "  Open: http://localhost"
+Write-OK "  Install dir: $InstallDir"
 Write-OK "====================================="
 Write-Host ""
 
-try {
-    Start-Process 'http://localhost'
-} catch {}
+try { Start-Process 'http://localhost' } catch {}

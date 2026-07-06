@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Najva Messenger — One-click installer for Linux / macOS
+# Does NOT require cloning the repository.
+# Usage:  bash <(curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-linux.sh)
 # =============================================================================
-# Usage:
-#   bash install/install-linux.sh
-#
-# What it does:
-#   1. Installs Docker + Docker Compose plugin (Debian/Ubuntu, RHEL/Fedora, Arch)
-#   2. Generates cryptographically random secrets in .env
-#   3. Builds and starts all Najva services
-# =============================================================================
-
 set -euo pipefail
 
-# ---- Colours ----------------------------------------------------------------
 RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
 CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; NC='\033[0m'
 
@@ -22,7 +14,8 @@ ok()    { echo -e "${GREEN}[OK] $*${NC}"; }
 warn()  { echo -e "${YELLOW}[!!] $*${NC}"; }
 fatal() { echo -e "${RED}[XX] $*${NC}"; exit 1; }
 
-# ---- Banner -----------------------------------------------------------------
+RAW="https://raw.githubusercontent.com/MatinMHF/najva-messenger/main"
+
 echo -e "${MAGENTA}"
 cat <<'BANNER'
 
@@ -39,7 +32,6 @@ cat <<'BANNER'
 BANNER
 echo -e "${NC}"
 
-# ---- Helpers ----------------------------------------------------------------
 command_exists() { command -v "$1" &>/dev/null; }
 
 gen_secret() {
@@ -47,9 +39,9 @@ gen_secret() {
     if command_exists openssl; then
         openssl rand -hex "$bytes"
     elif command_exists python3; then
-        python3 -c "import secrets, sys; sys.stdout.write(secrets.token_hex(int(sys.argv[1])))" "$bytes"
+        python3 -c "import secrets,sys; sys.stdout.write(secrets.token_hex(int(sys.argv[1])))" "$bytes"
     else
-        cat /dev/urandom | tr -dc 'a-f0-9' | head -c $((bytes * 2))
+        cat /dev/urandom | tr -dc 'a-f0-9' | head -c $((bytes*2))
     fi
 }
 
@@ -60,20 +52,17 @@ if command_exists docker && docker compose version &>/dev/null; then
     ok "Docker $(docker --version | awk '{print $3}' | tr -d ',') with Compose plugin found."
 else
     warn "Docker not found. Attempting automatic installation..."
-
     OS="$(uname -s)"
+
     if [[ "$OS" == "Darwin" ]]; then
-        # macOS
         if command_exists brew; then
             brew install --cask docker
-            ok "Docker Desktop installed via Homebrew."
             warn "Please open Docker Desktop, complete setup, then re-run this script."
             exit 0
         else
-            fatal "Please install Docker Desktop for Mac from https://docs.docker.com/desktop/mac/install/ then re-run."
+            fatal "Install Docker Desktop from https://docs.docker.com/desktop/mac/install/ then re-run."
         fi
     elif [[ -f /etc/debian_version ]]; then
-        # Debian / Ubuntu
         sudo apt-get update -qq
         sudo apt-get install -y -qq ca-certificates curl gnupg lsb-release
         sudo install -m 0755 -d /etc/apt/keyrings
@@ -89,7 +78,6 @@ $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev
         sudo usermod -aG docker "$USER" || true
         ok "Docker installed via apt."
     elif [[ -f /etc/redhat-release ]] || [[ -f /etc/fedora-release ]]; then
-        # RHEL / CentOS / Fedora
         sudo dnf -y install dnf-plugins-core
         sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo 2>/dev/null || \
             sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -98,7 +86,6 @@ $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev
         sudo usermod -aG docker "$USER" || true
         ok "Docker installed via dnf."
     elif command_exists pacman; then
-        # Arch Linux
         sudo pacman -Sy --noconfirm docker docker-compose
         sudo systemctl enable --now docker
         sudo usermod -aG docker "$USER" || true
@@ -108,27 +95,35 @@ $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev
     fi
 fi
 
-# Ensure Docker daemon is reachable
 if ! docker info &>/dev/null; then
     warn "Docker daemon not running. Trying to start..."
     sudo systemctl start docker 2>/dev/null || fatal "Could not start Docker. Please start it manually."
 fi
 
-# ---- Step 2: Repo root ------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$REPO_ROOT"
-ok "Working directory: $REPO_ROOT"
+# ---- Step 2: Create install directory ---------------------------------------
+INSTALL_DIR="${NAJVA_DIR:-$HOME/najva}"
+step "Creating install directory: $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"/nginx "$INSTALL_DIR"/turn
+cd "$INSTALL_DIR"
+ok "Working directory: $INSTALL_DIR"
 
-# ---- Step 3: .env -----------------------------------------------------------
+# ---- Step 3: Download config files ------------------------------------------
+step "Downloading configuration files from GitHub..."
+
+curl -fsSL "$RAW/docker-compose.yml"       -o docker-compose.yml
+curl -fsSL "$RAW/.env.example"             -o .env.example
+curl -fsSL "$RAW/nginx/nginx.conf"         -o nginx/nginx.conf
+curl -fsSL "$RAW/turn/turnserver.conf"     -o turn/turnserver.conf
+
+ok "Config files downloaded."
+
+# ---- Step 4: .env -----------------------------------------------------------
 step "Configuring environment..."
 
 if [[ -f .env ]]; then
     warn ".env already exists — skipping secret generation."
     warn "Delete .env and re-run if you want fresh secrets."
 else
-    [[ -f .env.example ]] || fatal ".env.example not found. Run from repo root."
-
     JWT_SECRET=$(gen_secret 32)
     JWT_REFRESH=$(gen_secret 32)
     DB_PASS=$(gen_secret 24)
@@ -142,20 +137,18 @@ else
         .env.example > .env
 
     ok ".env created with generated secrets."
-    warn "Back up your .env file! Losing it means losing access to encrypted data."
+    warn "Back up $INSTALL_DIR/.env — losing it means losing access to encrypted data."
 fi
 
-# ---- Step 4: Build & Start --------------------------------------------------
-step "Building and starting Najva services (this may take a few minutes)..."
-docker compose up --build -d
+# ---- Step 5: Build & Start --------------------------------------------------
+step "Pulling images and starting Najva services (first run may take a few minutes)..."
+docker compose up -d --pull always
 
-# ---- Step 5: Health ---------------------------------------------------------
+# ---- Step 6: Health check ---------------------------------------------------
 step "Waiting for services to become healthy..."
 for i in $(seq 1 12); do
     sleep 5
-    if docker compose ps | grep -q 'healthy'; then
-        break
-    fi
+    if docker compose ps 2>/dev/null | grep -q 'healthy'; then break; fi
 done
 
 # ---- Done -------------------------------------------------------------------
@@ -163,12 +156,10 @@ echo ""
 ok "====================================="
 ok "  Najva is running!"
 ok "  Open: http://localhost"
+ok "  Install dir: $INSTALL_DIR"
 ok "====================================="
 echo ""
 
-# Try to open browser
-if command_exists xdg-open; then
-    xdg-open http://localhost &
-elif command_exists open; then
-    open http://localhost &
+if command_exists xdg-open; then xdg-open http://localhost &
+elif command_exists open;     then open http://localhost &
 fi
