@@ -1,0 +1,126 @@
+/* =========================================
+   Design tokens — single source of truth
+   =========================================
+   Colors, radii, shadows, and fonts extracted verbatim from styles/index.css.
+   Values here are immutable without a deliberate design change (this file
+   backs Phase 5's broader design-system work) — do not fork/duplicate them
+   elsewhere; import this file instead.
+========================================= */
+/* Self-hosted fonts (see fonts.css) — no external font-CDN dependency. */
+@import './fonts.css';
+
+:root {
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-rtl: 'Vazirmatn', var(--font-family-sans);
+
+  --color-teal: #1F8A96;
+  --color-teal-hover: #176d77;
+  --color-orange: #F28C38;
+  --color-orange-hover: #d9782a;
+  --color-success: #10B981;
+  --error-color: #EF4444;
+
+  --bg-page: #F3F6F8;
+  --bg-surface: #FFFFFF;
+  --bg-input: #F8FAFC;
+
+  --text-main: #1E293B;
+  --text-muted: #64748B;
+  --text-on-color: #FFFFFF;
+
+  --bubble-me-bg: var(--color-orange);
+  --bubble-me-text: #FFFFFF;
+  --bubble-other-bg: #FFFFFF;
+  --bubble-other-text: var(--text-main);
+
+  --border-color: #E2E8F0;
+  --card-border: #FFFFFF;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-full: 9999px;
+
+  /* ---- Phase 5 design-system extensions ---- */
+
+  /* Brand gradient (teal → orange) — the signature accent. */
+  --gradient-brand: linear-gradient(135deg, var(--color-teal) 0%, var(--color-orange) 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(31, 138, 150, 0.12) 0%, rgba(242, 140, 56, 0.12) 100%);
+
+  /* Glass surfaces (depth direction). */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-blur: 14px;
+
+  /* Elevation. */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-glow: 0 0 0 3px rgba(242, 140, 56, 0.18);
+  --shadow-glow-teal: 0 0 0 3px rgba(31, 138, 150, 0.18);
+  --shadow-brand: 0 8px 24px -8px rgba(242, 140, 56, 0.45);
+
+  /* Motion — durations + easings (referenced by animations + transitions). */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 340ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Back-compat aliases for the older (orphaned) files. */
+  --transition-fast: var(--dur-fast) var(--ease-out);
+  --transition-normal: var(--dur) var(--ease-out);
+  --transition-bounce: var(--ease-spring);
+
+  /* Spacing scale. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Typography scale. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* Focus ring (accessibility). */
+  --focus-ring: 0 0 0 3px rgba(31, 138, 150, 0.45);
+
+  --z-drawer: 900;
+  --z-modal: 1000;
+  --z-call: 2000;
+  --z-toast: 3000;
+}
+
+body.dark-theme {
+  --bg-page: #121216;
+  --bg-surface: #1E1E24;
+  --bg-input: #2B2B36;
+
+  --text-main: #E2E8F0;
+  --text-muted: #94A3B8;
+
+  --bubble-other-bg: #2B2B36;
+  --bubble-other-text: #E2E8F0;
+
+  --border-color: #3F3F46;
+  --card-border: #3F3F46;
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+
+  /* Glass + elevation for dark depth. */
+  --glass-bg: rgba(30, 30, 36, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-brand: 0 8px 24px -8px rgba(242, 140, 56, 0.5);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(31, 138, 150, 0.18) 0%, rgba(242, 140, 56, 0.18) 100%);
+}

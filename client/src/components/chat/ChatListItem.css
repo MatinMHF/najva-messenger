@@ -1,0 +1,65 @@
+.chat-list-item {
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.chat-list-item:hover {
+  background-color: var(--color-bg-surface-hover);
+}
+
+.chat-list-item:active {
+  background-color: var(--color-bg-elevated);
+}
+
+.avatar-container {
+  width: 50px;
+  height: 50px;
+}
+
+[dir="rtl"] .avatar-container {
+  margin-right: 0 !important;
+  margin-left: 0.75rem;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+.group-indicator {
+  width: 12px;
+  height: 12px;
+  border-color: var(--color-bg-surface);
+}
+
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.text-primary-text {
+  color: var(--color-text-primary);
+}
+
+.unread-badge {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  animation: pulse 2s infinite;
+}
+
+[dir="rtl"] .chat-list-item-content .ml-2 {
+  margin-left: 0 !important;
+  margin-right: 0.5rem;
+}
+
+[dir="rtl"] .chat-list-item-content .pr-2 {
+  padding-right: 0 !important;
+  padding-left: 0.5rem;
+}

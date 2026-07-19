@@ -1,0 +1,514 @@
+/* =========================================
+   1. Base Variables & Fonts
+   Tokens now live in styles/tokens.css (single source of truth) — imported
+   here verbatim, no value changes.
+========================================= */
+@import './tokens.css';
+@import './animations.css';
+
+/* =========================================
+   2. Global Styles & Utilities
+========================================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-family-sans);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.w-full { width: 100%; }
+.mb-3 { margin-bottom: 1rem; }
+
+.top-controls {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  z-index: 10;
+}
+
+.control-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  font-weight: bold;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+.control-btn:hover { background: var(--bg-input); transform: scale(1.05); }
+
+/* =========================================
+   3. Auth Pages & General Components
+========================================= */
+.auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+.auth-card {
+  background: var(--bg-surface); width: 100%; max-width: 420px; padding: 2.5rem;
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); border: 1px solid var(--card-border);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.logo-container { display: flex; justify-content: center; margin-bottom: 1.5rem; }
+.brand-logo { width: 135px; height: 135px; object-fit: contain; }
+.auth-title { font-size: 1.75rem; text-align: center; font-weight: 700; margin-bottom: 0.5rem; transition: color 0.4s ease; }
+.auth-subtitle { color: var(--text-muted); text-align: center; font-size: 0.95rem; margin-bottom: 2rem; transition: color 0.4s ease; }
+.auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-group label { font-size: 0.9rem; font-weight: 500; transition: color 0.4s ease; }
+
+input[type="text"], input[type="password"], textarea {
+  width: 100%; padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); 
+  background: var(--bg-input); color: var(--text-main); font-family: inherit; font-size: 0.95rem; transition: all 0.3s ease;
+}
+textarea { resize: vertical; }
+input:focus, textarea:focus { outline: none; border-color: var(--color-orange); box-shadow: 0 0 0 3px rgba(242, 140, 56, 0.15); background: var(--bg-surface); }
+input::placeholder, textarea::placeholder { color: #94A3B8; }
+
+.form-options { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-top: -0.5rem; }
+.remember-me { display: flex; align-items: center; gap: 0.4rem; color: var(--text-muted); cursor: pointer; transition: color 0.4s ease; }
+
+.btn-primary {
+  padding: 0.85rem; border-radius: var(--radius-md); border: none; background: var(--color-orange); color: var(--text-on-color); 
+  font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s; margin-top: 0.5rem; font-family: inherit;
+  text-align: center; display: inline-flex; justify-content: center; align-items: center; width: 100%;
+}
+.btn-secondary {
+  padding: 0.85rem; border-radius: var(--radius-md); background: transparent;
+  border: 1px solid var(--color-orange); color: var(--color-orange);
+  font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.2s ease;
+  text-align: center; display: inline-flex; justify-content: center; align-items: center; font-family: inherit; width: 100%;
+}
+.btn-secondary:hover { background: rgba(242, 140, 56, 0.1); }
+.btn-secondary:active, .btn-primary:active { transform: scale(0.98); }
+a.btn-primary { text-decoration: none; }
+.btn-primary:hover { background: var(--color-orange-hover); }
+
+.auth-footer { text-align: center; color: var(--text-muted); margin-top: 1.5rem; font-size: 0.9rem; transition: color 0.4s ease; }
+.text-link-teal { color: var(--color-teal); text-decoration: none; font-weight: 500; }
+.text-link-teal:hover { text-decoration: underline; }
+.text-link-orange { color: var(--color-orange); text-decoration: none; font-weight: 600; }
+.text-link-orange:hover { text-decoration: underline; }
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.1); border: 1px solid var(--error-color);
+  color: var(--error-color); padding: 1rem; border-radius: var(--radius-md);
+  font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* =========================================
+   4. Chat Page (App Layout)
+========================================= */
+.app-container {
+  display: flex; height: 100vh; width: 100vw; overflow: hidden;
+  background-color: var(--bg-page); transition: background-color 0.4s ease;
+}
+
+.sidebar {
+  width: 350px; background-color: var(--bg-surface); border-right: 1px solid var(--border-color);
+  display: flex; flex-direction: column; transition: background-color 0.4s ease, border-color 0.4s ease; z-index: 2;
+}
+
+.sidebar-header {
+  height: 70px; display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-color); transition: border-color 0.4s ease;
+}
+
+.brand-small { display: flex; align-items: center; gap: 0.5rem; }
+.sidebar-logo { width: 45px; height: 45px; object-fit: contain; }
+.text-primary { color: var(--color-orange); font-weight: 700; }
+.header-controls { display: flex; align-items: center; gap: 0.5rem; }
+
+.search-container { padding: 1rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+
+.user-btn {
+  background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 50%;
+  width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-main); cursor: pointer; transition: all 0.3s ease;
+}
+.user-btn:hover { border-color: var(--color-orange); color: var(--color-orange); }
+
+.user-dropdown {
+  position: absolute; top: 100%; left: 0; margin-top: 0.5rem; background: var(--bg-surface);
+  border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  min-width: 160px; display: flex; flex-direction: column; padding: 0.5rem 0; opacity: 0; visibility: hidden;
+  transform: translateY(-10px); transition: all 0.3s ease; z-index: 100;
+}
+.user-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+
+.dropdown-item {
+  padding: 0.75rem 1.25rem; color: var(--text-main); text-decoration: none; font-size: 0.9rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.dropdown-item:hover { background: var(--bg-input); color: var(--color-orange); }
+
+.search-input {
+  width: 100%; padding: 0.75rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--border-color);
+  background: var(--bg-input); color: var(--text-main); outline: none; font-size: 0.9rem; transition: all 0.3s ease;
+}
+.search-input:focus { border-color: var(--color-orange); box-shadow: 0 0 0 3px rgba(242, 140, 56, 0.15); }
+
+/* Chat List */
+.chat-list { flex: 1; overflow-y: auto; }
+.chat-item {
+  display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; cursor: pointer;
+  transition: background 0.2s ease; border-bottom: 1px solid transparent;
+}
+.chat-item:hover { background-color: var(--bg-input); }
+.chat-item.active { background-color: rgba(242, 140, 56, 0.1); border-right: 4px solid var(--color-orange); }
+
+.avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background-color: var(--border-color); }
+.chat-item-details { flex: 1; overflow: hidden; }
+.chat-item-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem; }
+.chat-name { font-weight: 600; color: var(--text-main); font-size: 1rem; }
+.chat-time { font-size: 0.75rem; color: var(--text-muted); }
+.chat-item-last-message { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.unread-badge {
+  background-color: var(--color-orange); color: white; font-size: 0.7rem; font-weight: bold;
+  padding: 0.1rem 0.4rem; border-radius: var(--radius-full); display: inline-flex;
+  align-items: center; justify-content: center; margin-left: 0.5rem;
+}
+
+/* Main Chat Area */
+.chat-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+.chat-header {
+  height: 70px; background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; padding: 0 2rem; transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+.chat-header-info { display: flex; align-items: center; gap: 1rem; }
+.chat-status { font-size: 0.8rem; color: var(--color-success); font-weight: 500; }
+
+.messages-container { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+.message { display: flex; max-width: 75%; }
+.message.me { align-self: flex-end; }
+.message.other { align-self: flex-start; }
+
+.bubble {
+  padding: 0.85rem 1.2rem; border-radius: var(--radius-lg); font-size: 0.95rem; line-height: 1.5;
+  position: relative; box-shadow: var(--shadow-sm); transition: background-color 0.4s ease, color 0.4s ease;
+}
+.message.me .bubble { background-color: var(--bubble-me-bg); color: var(--bubble-me-text); border-bottom-right-radius: 4px; }
+.message.other .bubble { background-color: var(--bubble-other-bg); color: var(--bubble-other-text); border-bottom-left-radius: 4px; }
+
+.msg-time { display: inline-block; float: right; margin-left: 0.5rem; font-size: 0.7rem; margin-top: 0.4rem; text-align: right; opacity: 0.7; }
+
+.chat-input-area {
+  background-color: var(--bg-surface); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem;
+  border-top: 1px solid var(--border-color); transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.icon-btn {
+  background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: color 0.2s ease; padding: 0.5rem; font-family: inherit;
+}
+.icon-btn:hover { color: var(--color-orange); }
+
+.send-btn {
+  width: 45px; height: 45px; border-radius: 50%; border: none; background-color: var(--color-orange); color: white;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-md); transition: all 0.2s ease; flex-shrink: 0;
+}
+.send-btn:hover { background-color: var(--color-orange-hover); transform: scale(1.05); }
+.send-btn:active { transform: scale(0.95); }
+.sidebar-header .icon-btn { color: var(--text-main); }
+
+/* =========================================
+   5. Modals (Profile, Contacts, Settings)
+========================================= */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); z-index: 1000; display: flex;
+  align-items: center; justify-content: center; opacity: 0; visibility: hidden;
+  transition: all 0.3s ease; backdrop-filter: blur(3px);
+}
+.modal-overlay.show { opacity: 1; visibility: visible; }
+
+.modal-box {
+  background: var(--bg-surface); border-radius: var(--radius-xl); width: 90%; max-width: 400px;
+  max-height: 85vh; box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);
+  display: none; flex-direction: column; transform: translateY(20px) scale(0.95); transition: all 0.3s ease;
+}
+.modal-overlay.show .modal-box.active { display: flex; transform: translateY(0) scale(1); }
+
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color); color: var(--text-main);
+}
+.modal-header h3 { font-size: 1.1rem; font-weight: 600; }
+
+.close-modal-btn {
+  background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem;
+  cursor: pointer; transition: color 0.2s; line-height: 1;
+}
+.close-modal-btn:hover { color: var(--color-orange); }
+
+.modal-body { padding: 1.5rem; overflow-y: auto; }
+
+.profile-avatar-wrapper { position: relative; display: inline-block; }
+.profile-avatar-large {
+  width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--color-orange); padding: 3px;
+}
+.modal-section {
+  background: var(--bg-input); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);
+}
+
+.settings-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 0; border-bottom: 1px solid var(--border-color);
+}
+.settings-info { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; }
+input:checked + .slider { background-color: var(--color-orange); }
+input:checked + .slider:before { transform: translateX(20px); }
+.slider.round { border-radius: 24px; }
+.slider.round:before { border-radius: 50%; }
+
+/* =========================================
+   6. Persian Text RTL (فقط راست‌چین شدن متن‌ها)
+========================================= */
+.fa-text {
+  font-family: var(--font-family-rtl);
+}
+
+/* موارد چپ‌چینی که در فارسی باید راست‌چین شوند */
+.fa-text .form-group label,
+.fa-text input,
+.fa-text textarea,
+.fa-text .search-input,
+.fa-text .chat-item-last-message,
+.fa-text .bubble,
+.fa-text .chat-status,
+.fa-text .dropdown-item,
+.fa-text .settings-info,
+.fa-text .modal-section label,
+.fa-text .modal-section p,
+.fa-text .chat-name,
+.fa-text .alert-error {
+  direction: rtl;
+  text-align: right;
+}
+
+/* در منوی کشویی پروفایل */
+.fa-text .dropdown-item {
+  text-align: right;
+  direction: rtl;
+}
+
+/* زمان پیام */
+.fa-text .msg-time {
+  text-align: left;
+}
+
+/* تنظیم جهت در داخل مدال‌ها */
+.fa-text .text-left {
+  text-align: right !important;
+}
+
+/* =========================================
+   7. User Profile Drawer (Sidebar) - NEW
+========================================= */
+.user-drawer {
+  position: fixed; top: 0; bottom: 0; width: 400px; background-color: var(--bg-surface);
+  border-left: 1px solid var(--border-color); box-shadow: var(--shadow-lg); z-index: 1010;
+  display: flex; flex-direction: column; transition: transform 0.3s ease-in-out;
+  right: 0; transform: translateX(100%);
+}
+.user-drawer.active { transform: translateX(0); }
+
+/* LTR Support for Drawer */
+body:not(.fa-text) .user-drawer {
+  right: auto; left: 0; border-left: none; border-right: 1px solid var(--border-color);
+  transform: translateX(-100%);
+}
+body:not(.fa-text) .user-drawer.active { transform: translateX(0); }
+
+.user-drawer-header {
+  height: 70px; display: flex; align-items: center; padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-color); gap: 1rem;
+}
+.user-drawer-header h3 { font-size: 1.1rem; font-weight: 600; }
+
+.user-drawer-content { flex: 1; overflow-y: auto; padding: 2rem 1.5rem; }
+.user-profile-hero { display: flex; flex-direction: column; align-items: center; }
+
+.drawer-actions {
+  background: var(--bg-input); border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color); overflow: hidden;
+}
+.drawer-action-item {
+  width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem;
+  background: transparent; border: none; border-bottom: 1px solid var(--border-color);
+  color: var(--text-main); font-family: inherit; font-size: 1rem; font-weight: 500;
+  cursor: pointer; transition: background 0.2s ease; text-align: right;
+}
+body:not(.fa-text) .drawer-action-item { text-align: left; }
+.drawer-action-item:hover { background: var(--bg-surface); }
+
+.action-icon {
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.bg-teal-light { background-color: rgba(31, 138, 150, 0.1); color: var(--color-teal); }
+.bg-success-light { background-color: rgba(16, 185, 129, 0.1); color: var(--color-success); }
+.bg-orange-light { background-color: rgba(242, 140, 56, 0.1); color: var(--color-orange); }
+.bg-primary-light { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.bg-error-light { background-color: rgba(239, 68, 68, 0.1); color: var(--error-color); }
+.text-error { color: var(--error-color); }
+
+@media (max-width: 480px) { .user-drawer { width: 100%; } }
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* =========================================================================
+   Phase 5 — depth / glass elevation layer.
+   Upgrades the shared component classes above to the redesigned visual
+   language (glass surfaces, teal→orange gradient accents, motion, focus
+   rings). Later rules win the cascade, so this restyles every screen that
+   reuses these classes without touching markup.
+========================================================================= */
+
+/* Accessibility: a consistent, visible keyboard focus ring everywhere. */
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Ambient brand backdrop on full-page surfaces. */
+.auth-page, .app-container {
+  background-image: radial-gradient(1200px 600px at 100% -10%, rgba(242, 140, 56, 0.10), transparent 60%),
+                    radial-gradient(1000px 500px at -10% 110%, rgba(31, 138, 150, 0.10), transparent 60%);
+}
+
+/* Auth card: glass, gradient top accent, soft entrance. */
+.auth-card {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: slideUp var(--dur-slow) var(--ease-out) both;
+}
+.auth-card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--gradient-brand);
+}
+.brand-logo { filter: drop-shadow(0 6px 16px rgba(242, 140, 56, 0.25)); }
+
+/* Primary action: brand gradient + lift + press. */
+.btn-primary {
+  background: var(--gradient-brand); box-shadow: var(--shadow-brand);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) var(--ease-out), filter var(--dur) var(--ease-out);
+}
+.btn-primary:hover { background: var(--gradient-brand); filter: brightness(1.05); transform: translateY(-1px); box-shadow: var(--shadow-brand); }
+.btn-primary:active, .btn-secondary:active { transform: scale(0.98); }
+.btn-secondary { transition: background var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+
+/* Inputs: token focus ring (teal). */
+input:focus, textarea:focus, .search-input:focus {
+  border-color: var(--color-teal); box-shadow: var(--shadow-glow-teal);
+}
+
+/* Sidebar + chat rows: glass, gradient active pill, hover lift. */
+.sidebar { background: var(--glass-bg); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+.chat-item { border-radius: var(--radius-lg); margin: 2px 8px; padding-inline: 1rem; transition: background var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.chat-item:hover { transform: translateX(2px); }
+.chat-item.active {
+  background: var(--gradient-brand-soft); border-right: none;
+  box-shadow: inset 3px 0 0 0 var(--color-orange);
+}
+[dir="rtl"] .chat-item.active, body.fa-text .chat-item.active { box-shadow: inset -3px 0 0 0 var(--color-orange); }
+.unread-badge { background: var(--gradient-brand); box-shadow: var(--shadow-xs); }
+.avatar img { box-shadow: 0 0 0 2px var(--bg-surface), var(--shadow-xs); }
+
+/* Message bubbles: depth + gradient for own messages. */
+.bubble { box-shadow: var(--shadow-sm); }
+.message.me .bubble { background: var(--gradient-brand); box-shadow: var(--shadow-brand); }
+
+/* Send button: gradient. */
+.send-btn { background: var(--gradient-brand); box-shadow: var(--shadow-brand); }
+.send-btn:hover { background: var(--gradient-brand); filter: brightness(1.06); transform: scale(1.06); }
+
+/* Icon control buttons: subtle press. */
+.control-btn, .user-btn, .icon-btn { transition: transform var(--dur-fast) var(--ease-out), color var(--dur) var(--ease-out), background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out); }
+.control-btn:active, .user-btn:active, .icon-btn:active { transform: scale(0.92); }
+
+/* Modal / dropdown: glass + spring entrance. */
+.modal-box { background: var(--glass-bg); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); }
+.modal-box.active { animation: popIn var(--dur) var(--ease-spring) both; }
+.user-dropdown { background: var(--glass-bg); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); }
+
+/* Refined scrollbars. */
+.chat-list::-webkit-scrollbar, .messages-container::-webkit-scrollbar { width: 8px; }
+.chat-list::-webkit-scrollbar-thumb, .messages-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: var(--radius-full); }
+.chat-list::-webkit-scrollbar-thumb:hover, .messages-container::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Toggle switch → brand gradient when on. */
+input:checked + .slider { background: var(--gradient-brand); }
+.slider { transition: background var(--dur) var(--ease-out); }
+.slider:before { transition: transform var(--dur) var(--ease-spring); box-shadow: var(--shadow-xs); }
+
+/* Chat header + input bar: glass, consistent with the sidebar. */
+.chat-header, .chat-input-area {
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+}
+.chat-header-actions .icon-btn { border-radius: var(--radius-full); width: 40px; height: 40px; }
+.chat-header-actions .icon-btn:hover { background: var(--gradient-brand-soft); }
+.msg-input { border-radius: var(--radius-full) !important; }
+
+/* Settings rows → cards. */
+.settings-item {
+  border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 0.5rem;
+  border: 1px solid var(--border-color); background: var(--bg-surface);
+  transition: border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+.settings-item:hover { border-color: var(--color-teal); box-shadow: var(--shadow-sm); }
+
+/* Modal header: gradient hairline accent under the title. */
+.modal-header { position: relative; }
+.modal-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--gradient-brand); opacity: 0.9; }
+
+/* Recovery-code boxes: mono, tactile. */
+.recovery-code-box {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.06em;
+  border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-input);
+  transition: border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.recovery-code-box:hover { border-color: var(--color-orange); transform: translateY(-1px); }
+
+/* Chat-item entrance stagger on first paint. */
+.chat-list .chat-item { animation: slideUp var(--dur) var(--ease-out) both; }
+
+/* Alert: brand-red with soft fill already; add left accent. */
+.alert-error { border-inline-start: 3px solid var(--error-color); }

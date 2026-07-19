@@ -41,6 +41,8 @@ services:
       redis:
         condition: service_healthy
     env_file: .env
+    environment:
+      MEDIA_SERVER_URL: http://media-server:4443
     volumes:
       - uploads:/app/uploads
     networks:
@@ -93,6 +95,8 @@ services:
       - "2000-2020:2000-2020/udp"
       - "4443:4443/tcp"
     env_file: .env
+    environment:
+      - DEBUG=mediasoup*
     networks:
       - najva-network
     restart: unless-stopped

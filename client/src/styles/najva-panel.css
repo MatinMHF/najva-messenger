@@ -1,0 +1,505 @@
+/* =========================================
+   Najva sliding panel — Phase C3 (Settings / Profile / Contacts)
+   Faithful port of the SLIDING PANEL region of "Najva Chat.dc.html".
+   Scoped under .najva-chat so it inherits the --nj-* tokens defined
+   in najva-chat.css (light + dark) and overrides the app's global
+   modal/settings styles.
+========================================= */
+
+/* ---- backdrop + panel box (settings-style centered dialog) ---- */
+.najva-chat .nj-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(5, 22, 26, 0.55);
+  animation: najva-fade 0.25s ease both;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.najva-chat .nj-panel {
+  width: 480px;
+  max-width: 92vw;
+  height: min(660px, 88vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--nj-panel);
+  border: 1px solid var(--nj-border);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px -20px rgba(5, 22, 26, 0.6);
+  overflow: hidden;
+  cursor: auto;
+  animation: najva-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Profile / Contacts: full slide-over of the whole app (design's non-settings variant) */
+.najva-chat .nj-panel-overlay.slideover {
+  background: transparent;
+  z-index: 30;
+  cursor: auto;
+  align-items: stretch;
+  justify-content: stretch;
+}
+.najva-chat .nj-panel.nj-panel-full {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: najva-slide 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes najva-panel-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes najva-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes najva-slide { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes najva-pop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes najva-pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(30, 138, 150, 0.35); } 70% { box-shadow: 0 0 0 16px rgba(30, 138, 150, 0); } 100% { box-shadow: 0 0 0 0 rgba(30, 138, 150, 0); } }
+
+/* ---- panel header ---- */
+.najva-chat .nj-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--nj-border);
+  flex-shrink: 0;
+}
+.najva-chat .nj-panel-back {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nj-ink);
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-panel-back:hover { background: var(--nj-hover); }
+.najva-chat .nj-panel-back:active { transform: scale(0.97); }
+.najva-chat .nj-panel-title { font-size: 1.03rem; font-weight: 800; color: var(--nj-ink); }
+
+.najva-chat .nj-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---- profile / account ---- */
+.najva-chat .nj-pf-head {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 6px 0 10px;
+}
+.najva-chat .nj-pf-avatar {
+  position: relative;
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; font-weight: 800; color: #fff;
+}
+.najva-chat .nj-pf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.najva-chat .nj-pf-cam {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--nj-teal); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: 2.5px solid var(--nj-panel);
+}
+.najva-chat .nj-pf-name { font-size: 1.125rem; font-weight: 800; color: var(--nj-ink); text-align: center; }
+.najva-chat .nj-pf-username { font-size: 0.844rem; color: var(--nj-muted); text-align: center; }
+
+.najva-chat .nj-field {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 13px 16px;
+  border: 1px solid var(--nj-border);
+  border-radius: 13px;
+  background: var(--nj-panel);
+  transition: border-color 0.18s;
+  animation: najva-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-field:hover { border-color: var(--nj-teal); }
+.najva-chat .nj-field-top { display: flex; align-items: center; gap: 8px; }
+.najva-chat .nj-field-label {
+  font-size: 0.719rem; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--nj-teal);
+}
+.najva-chat .nj-field-soon {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.656rem; font-weight: 800; letter-spacing: 0.04em;
+  color: #e08c0b; background: rgba(245, 166, 35, 0.14);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  padding: 2px 8px; border-radius: 9px;
+}
+.najva-chat .nj-field-view { display: flex; align-items: center; gap: 8px; }
+.najva-chat .nj-field-value { flex: 1; min-width: 0; font-size: 0.906rem; color: var(--nj-ink); }
+.najva-chat .nj-field-value.empty { opacity: 0.5; }
+.najva-chat .nj-field-editbtn {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nj-teal); flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-field-editbtn:hover { background: var(--nj-hover); }
+.najva-chat .nj-field-edit { display: flex; gap: 8px; animation: najva-rise 0.2s ease both; }
+.najva-chat .nj-field-input {
+  flex: 1; min-width: 0;
+  padding: 11px 14px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: 1.5px solid var(--nj-teal);
+  border-radius: 11px; background: var(--nj-input-bg); outline: none;
+}
+.najva-chat .nj-field-save,
+.najva-chat .nj-form-submit,
+.najva-chat .nj-inline-save {
+  font-weight: 800; font-family: inherit; color: #fff;
+  background: linear-gradient(135deg, #1e8a96, #14707c);
+  border: none; cursor: pointer; transition: transform 0.15s;
+}
+.najva-chat .nj-field-save { padding: 0 18px; font-size: 0.844rem; border-radius: 11px; flex-shrink: 0; }
+.najva-chat .nj-field-save:active,
+.najva-chat .nj-form-submit:active { transform: scale(0.97); }
+
+.najva-chat .nj-flash { font-size: 0.813rem; font-weight: 700; color: var(--nj-teal); text-align: center; animation: najva-rise 0.3s ease both; }
+
+/* ---- generic list rows ---- */
+.najva-chat .nj-listrow {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 13px 14px;
+  border: 1px solid var(--nj-border); border-radius: 13px;
+  background: var(--nj-panel); cursor: pointer;
+  font-family: inherit; text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 0.16s;
+  animation: najva-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-listrow:hover { background: var(--nj-hover); border-color: var(--nj-teal); transform: translateX(3px); }
+.najva-chat .nj-listrow:active { transform: scale(0.98); }
+.najva-chat .nj-listrow-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-listrow-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.najva-chat .nj-listrow-label { font-size: 0.906rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-listrow-sub { font-size: 0.781rem; color: var(--nj-muted); }
+.najva-chat .nj-listrow-chev { flex-shrink: 0; color: var(--nj-muted); }
+.najva-chat .nj-listrow.danger .nj-listrow-label { color: #e05242; }
+
+/* ---- toggle rows ---- */
+.najva-chat .nj-toggle-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--nj-border); border-radius: 13px;
+  background: var(--nj-panel);
+  transition: opacity 0.3s;
+  animation: najva-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-toggle-row.dim { opacity: 0.5; }
+.najva-chat .nj-toggle-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.781rem; font-weight: 800; color: #fff;
+}
+.najva-chat .nj-toggle-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.najva-chat .nj-toggle-label { font-size: 0.875rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-toggle-sub { font-size: 0.781rem; color: var(--nj-muted); }
+.najva-chat .nj-toggle {
+  width: 44px; height: 26px; border-radius: 13px; cursor: pointer;
+  flex-shrink: 0; position: relative;
+  transition: background 0.25s, transform 0.15s;
+  background: #c6d9db; border: none;
+}
+body.dark-theme .najva-chat .nj-toggle { background: #2c4d53; }
+.najva-chat .nj-toggle.on { background: var(--nj-teal); }
+.najva-chat .nj-toggle:active { transform: scale(0.9); }
+.najva-chat .nj-toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: left 0.25s cubic-bezier(0.22, 1.4, 0.36, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.najva-chat .nj-toggle.on .nj-toggle-knob { left: 21px; }
+
+/* ---- select rows ---- */
+.najva-chat .nj-select-row {
+  display: flex; flex-direction: column; gap: 6px;
+  animation: najva-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-select-label { font-size: 0.781rem; font-weight: 700; color: var(--nj-teal); }
+.najva-chat .nj-select,
+.najva-chat .nj-bday select,
+.najva-chat .nj-bday input {
+  width: 100%; padding: 11px 12px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: 1.5px solid var(--nj-input-border);
+  border-radius: 11px; background: var(--nj-input-bg); outline: none; cursor: pointer;
+}
+
+/* ---- choice groups ---- */
+.najva-chat .nj-choice {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; border: 1px solid var(--nj-border);
+  border-radius: 13px; background: var(--nj-panel);
+  animation: najva-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-choice-label { font-size: 0.844rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-choice-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.najva-chat .nj-choice-btn {
+  padding: 7px 14px; font-size: 0.781rem; font-weight: 800; font-family: inherit;
+  border-radius: 9px; cursor: pointer; transition: all 0.2s;
+  color: var(--nj-teal-deep); background: transparent;
+  border: 1.5px solid var(--nj-input-border);
+}
+.najva-chat .nj-choice-btn:active { transform: scale(0.96); }
+.najva-chat .nj-choice-btn.active {
+  color: #fff; background: linear-gradient(135deg, #1e8a96, #14707c);
+  border-color: transparent;
+}
+
+/* ---- section note ---- */
+.najva-chat .nj-panel-note { font-size: 0.781rem; line-height: 1.5; color: var(--nj-muted); padding: 0 4px; }
+
+/* ---- form panels ---- */
+.najva-chat .nj-form-field { display: flex; flex-direction: column; gap: 6px; }
+.najva-chat .nj-form-label { font-size: 0.781rem; font-weight: 700; color: var(--nj-teal); }
+.najva-chat .nj-form-input,
+.najva-chat .nj-form-area {
+  width: 100%; padding: 11px 14px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: 1.5px solid var(--nj-input-border);
+  border-radius: 11px; background: var(--nj-input-bg); outline: none;
+  transition: border-color 0.2s;
+}
+.najva-chat .nj-form-input:focus,
+.najva-chat .nj-form-area:focus { border-color: var(--nj-teal); }
+.najva-chat .nj-form-area { resize: vertical; }
+.najva-chat .nj-form-error {
+  font-size: 0.813rem; color: #d98a2b; background: rgba(245, 166, 35, 0.12);
+  border: 1px solid rgba(245, 166, 35, 0.4); border-radius: 10px; padding: 9px 13px;
+}
+.najva-chat .nj-form-submit {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 13px; font-size: 0.906rem; border-radius: 11px;
+}
+.najva-chat .nj-form-submit:disabled { opacity: 0.6; cursor: default; }
+
+/* ---- contacts ---- */
+.najva-chat .nj-contact-search {
+  width: 100%; padding: 10px 16px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: 1.5px solid var(--nj-input-border);
+  border-radius: 18px; background: var(--nj-input-bg); outline: none;
+  transition: border-color 0.2s;
+}
+.najva-chat .nj-contact-search:focus { border-color: var(--nj-teal); }
+.najva-chat .nj-contact-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+  cursor: pointer; background: var(--nj-panel);
+  border: 1px solid var(--nj-border); border-radius: 14px;
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-contact-row:hover { background: var(--nj-hover); }
+.najva-chat .nj-contact-row:active { transform: scale(0.98); }
+.najva-chat .nj-contact-avatar {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.875rem; font-weight: 800; color: #fff;
+}
+.najva-chat .nj-contact-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.najva-chat .nj-contact-name { font-size: 0.875rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-contact-sub { font-size: 0.781rem; color: var(--nj-muted); }
+
+/* ---- passkey flow ---- */
+.najva-chat .nj-passkey { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 26px; }
+.najva-chat .nj-passkey-wait {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: rgba(30, 138, 150, 0.12);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nj-teal); animation: najva-pulse-ring 1.4s ease-out infinite;
+}
+.najva-chat .nj-passkey-done {
+  width: 72px; height: 72px; border-radius: 50%; background: var(--nj-teal);
+  display: flex; align-items: center; justify-content: center;
+  animation: najva-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+.najva-chat .nj-passkey-text { font-size: 0.906rem; font-weight: 700; color: var(--nj-sub); text-align: center; }
+.najva-chat .nj-passkey-text.done { font-size: 0.969rem; font-weight: 800; color: var(--nj-ink); }
+
+/* ---- recovery keys result ---- */
+.najva-chat .nj-keys-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  padding: 14px; border: 1.5px dashed var(--nj-input-border);
+  border-radius: 13px; background: var(--nj-input-bg);
+}
+.najva-chat .nj-key { font-family: 'SF Mono', Consolas, monospace; font-size: 0.781rem; font-weight: 600; color: var(--nj-ink); }
+.najva-chat .nj-copy-keys {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; font-size: 0.875rem; font-weight: 800; font-family: inherit;
+  border-radius: 11px; cursor: pointer; transition: all 0.25s;
+  color: var(--nj-teal); background: transparent; border: 1.5px solid var(--nj-input-border);
+}
+.najva-chat .nj-copy-keys.copied { color: #fff; background: var(--nj-teal); border-color: transparent; }
+.najva-chat .nj-copy-keys:active { transform: scale(0.97); }
+
+/* ---- success flash ---- */
+.najva-chat .nj-success {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  margin-top: 18px; animation: najva-rise 0.4s ease both;
+}
+.najva-chat .nj-success-ring {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--nj-teal);
+  display: flex; align-items: center; justify-content: center;
+  animation: najva-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+.najva-chat .nj-success-text { font-size: 0.938rem; font-weight: 800; color: var(--nj-ink); text-align: center; }
+
+/* ---- app size ---- */
+.najva-chat .nj-appsize {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px 14px; border: 1px solid var(--nj-border);
+  border-radius: 13px; background: var(--nj-panel);
+}
+.najva-chat .nj-appsize-top { display: flex; align-items: baseline; justify-content: space-between; }
+.najva-chat .nj-appsize-label { font-size: 0.875rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-appsize-val { font-size: 1.375rem; font-weight: 800; color: var(--nj-teal); font-variant-numeric: tabular-nums; }
+.najva-chat .nj-appsize input[type="range"] { width: 100%; accent-color: var(--nj-teal); cursor: pointer; }
+.najva-chat .nj-appsize-scale { display: flex; justify-content: space-between; font-size: 0.719rem; color: var(--nj-muted); }
+.najva-chat .nj-appsize-note { font-size: 0.781rem; color: var(--nj-muted); }
+
+/* ---- wallpaper grid ---- */
+.najva-chat .nj-wp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.najva-chat .nj-wp {
+  height: 68px; border-radius: 12px; cursor: pointer; position: relative;
+  overflow: hidden; background-size: cover; background-position: center;
+  border: 2.5px solid var(--nj-border);
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s;
+}
+.najva-chat .nj-wp.active { border-color: var(--nj-teal); }
+.najva-chat .nj-wp-check {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--nj-teal);
+  display: flex; align-items: center; justify-content: center;
+  animation: najva-pop 0.3s ease both;
+}
+.najva-chat .nj-wp-label {
+  position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
+  font-size: 0.625rem; font-weight: 800; color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* ---- toast ---- */
+.najva-chat .nj-toast {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+  z-index: 120; display: flex; align-items: center; gap: 9px;
+  padding: 11px 20px; border-radius: 14px;
+  background: linear-gradient(135deg, #1e8a96, #14707c); color: #fff;
+  font-size: 0.844rem; font-weight: 800;
+  box-shadow: 0 14px 34px -10px rgba(5,22,26,0.5);
+  animation: najva-rise 0.3s ease both;
+}
+
+/* ---- support ticket rows ---- */
+.najva-chat .nj-ticket {
+  display: flex; flex-direction: column; gap: 6px; width: 100%;
+  padding: 13px 14px; border: 1px solid var(--nj-border);
+  border-radius: 13px; background: var(--nj-panel); cursor: pointer;
+  font-family: inherit; text-align: left; transition: border-color 0.15s;
+}
+.najva-chat .nj-ticket:hover { border-color: var(--nj-teal); }
+.najva-chat .nj-ticket-top { display: flex; align-items: center; gap: 8px; width: 100%; }
+.najva-chat .nj-ticket-subj { flex: 1; font-size: 0.875rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-ticket-status { font-size: 0.688rem; font-weight: 800; padding: 3px 10px; border-radius: 8px; }
+.najva-chat .nj-ticket-desc {
+  font-size: 0.781rem; color: var(--nj-muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.najva-chat .nj-empty-note { text-align: center; font-size: 0.844rem; color: var(--nj-muted); margin-top: 20px; }
+
+/* ============ compose slide-out (create new chat / group / channel) ============ */
+.najva-chat .nj-create-panel {
+  position: absolute; inset: 0; z-index: 60; background: var(--nj-panel);
+  display: flex; flex-direction: column; animation: najva-slide 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-create-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border-bottom: 1px solid var(--nj-border); flex-shrink: 0;
+}
+.najva-chat .nj-create-title { font-size: 1rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-create-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+
+/* menu rows */
+.najva-chat .nj-create-row {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 13px 12px;
+  border: none; border-radius: 13px; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: start; transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-create-row:hover { background: var(--nj-hover); }
+.najva-chat .nj-create-row:active { transform: scale(0.97); }
+.najva-chat .nj-create-row-ic {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-create-row-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.najva-chat .nj-create-row-label { font-size: 0.906rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-create-row-sub { font-size: 0.781rem; color: var(--nj-muted); }
+
+/* name / username form */
+.najva-chat .nj-create-field { display: flex; flex-direction: column; gap: 6px; padding: 6px 4px; }
+.najva-chat .nj-create-lbl { font-size: 0.781rem; font-weight: 700; color: var(--nj-teal); }
+.najva-chat .nj-create-input {
+  width: 100%; padding: 11px 15px; font-size: 0.875rem; font-family: inherit; color: var(--nj-ink);
+  border: 1.5px solid var(--nj-input-border, var(--nj-border)); border-radius: 13px;
+  background: var(--nj-input-bg); outline: none; transition: border-color 0.2s;
+}
+.najva-chat .nj-create-input:focus { border-color: var(--nj-teal); }
+.najva-chat .nj-create-userwrap {
+  display: flex; align-items: center; border: 1.5px solid var(--nj-input-border, var(--nj-border));
+  border-radius: 13px; background: var(--nj-input-bg); overflow: hidden;
+}
+.najva-chat .nj-create-userwrap:focus-within { border-color: var(--nj-teal); }
+.najva-chat .nj-create-at { padding: 11px 0 11px 15px; font-size: 0.875rem; font-weight: 700; color: var(--nj-muted); }
+.najva-chat .nj-create-userinput {
+  flex: 1; padding: 11px 15px 11px 4px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: none; background: transparent; outline: none;
+}
+
+/* pick step */
+.najva-chat .nj-create-searchpill {
+  width: 100%; padding: 10px 16px; margin-bottom: 6px; font-size: 0.875rem; font-family: inherit;
+  color: var(--nj-ink); border: 1.5px solid var(--nj-border); border-radius: 18px;
+  background: var(--nj-input-bg); outline: none; transition: border-color 0.2s;
+}
+.najva-chat .nj-create-searchpill:focus { border-color: var(--nj-teal); }
+.najva-chat .nj-create-pick {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 10px;
+  border: none; border-radius: 13px; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: start; transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-create-pick:hover { background: var(--nj-hover); }
+.najva-chat .nj-create-pick:active { transform: scale(0.97); }
+.najva-chat .nj-create-pick.sel { background: var(--nj-hover); }
+.najva-chat .nj-create-pick-av {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 0.938rem; font-weight: 800;
+}
+.najva-chat .nj-create-pick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.najva-chat .nj-create-pick-name { font-size: 0.906rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-create-pick-sub { font-size: 0.75rem; }
+.najva-chat .nj-create-mark {
+  width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0;
+  border: 2px solid var(--nj-input-border, var(--nj-border)); background: transparent;
+  display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s;
+}
+.najva-chat .nj-create-mark.round { border-radius: 50%; }
+.najva-chat .nj-create-mark.on { border-color: var(--nj-teal); background: linear-gradient(135deg, #1e8a96, #14707c); }
+
+/* footer */
+.najva-chat .nj-create-foot { padding: 12px 14px; border-top: 1px solid var(--nj-border); flex-shrink: 0; }
+.najva-chat .nj-create-next {
+  width: 100%; padding: 13px; font-size: 0.875rem; font-weight: 800; font-family: inherit;
+  letter-spacing: 0.08em; color: #fff; background: var(--nj-border); border: none; border-radius: 13px;
+  cursor: default; transition: transform 0.15s;
+}
+.najva-chat .nj-create-next.on { background: linear-gradient(135deg, #1e8a96, #14707c); cursor: pointer; }
+.najva-chat .nj-create-next.on:active { transform: scale(0.98); }

@@ -9,8 +9,10 @@ COPY prisma ./prisma/
 RUN npm ci
 
 COPY . .
-RUN npm run build
+# Generate the Prisma client BEFORE tsc: the build imports generated types
+# (e.g. the MessageType enum), so the client must exist when `npm run build` runs.
 RUN npx prisma generate
+RUN npm run build
 
 FROM node:20-alpine
 

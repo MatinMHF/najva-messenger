@@ -1,0 +1,4 @@
+.chat-page {
+  /* Using standard utility classes defined in design system */
+  background-color: var(--color-bg-base);
+}

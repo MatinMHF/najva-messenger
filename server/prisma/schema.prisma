@@ -93,6 +93,7 @@ model User {
   sessions              Session[]
   conversationKeys      ConversationKey[]
   pushSubscriptions     PushSubscription[]
+  pushDevices           PushDevice[]
   notifications         Notification[]
 
   @@index([username])
@@ -102,9 +103,9 @@ model RecoveryCode {
   id           String    @id @default(uuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verifierHash String    @unique
-  wrappedMk    String
-  wrapSalt     String
+  verifierHash String    @unique // hex SHA-256("najva:rc:verify:v1" || codeBytes)
+  wrappedMk    String // JSON envelope: MK wrapped by code-derived RWK
+  wrapSalt     String // b64 16B HKDF salt
   usedAt       DateTime?
   createdAt    DateTime  @default(now())
 
@@ -115,14 +116,14 @@ model WebAuthnCredential {
   id           String    @id @default(uuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  credentialId String    @unique
-  publicKey    String
+  credentialId String    @unique // b64url
+  publicKey    String // b64 COSE key (@simplewebauthn format)
   counter      BigInt    @default(0)
-  transports   String?
+  transports   String? // JSON array
   deviceName   String?
   prfSupported Boolean   @default(false)
-  prfSalt      String?
-  wrappedMk    String?
+  prfSalt      String? // b64 32B fixed PRF eval salt for this credential
+  wrappedMk    String? // null until PRF output harvested
   createdAt    DateTime  @default(now())
   lastUsedAt   DateTime?
 
@@ -133,8 +134,8 @@ model Session {
   id               String    @id @default(uuid())
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshTokenHash String    @unique
-  prevTokenHash    String?   @unique
+  refreshTokenHash String    @unique // SHA-256 of current refresh token
+  prevTokenHash    String?   @unique // one-step grace + reuse detection
   deviceName       String?
   userAgent        String?
   ip               String?
@@ -150,11 +151,11 @@ model ConversationKey {
   id             String       @id @default(uuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userId         String
+  userId         String // the member this wrap is FOR
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   version        Int
-  wrappedKey     String
-  wrappedById    String
+  wrappedKey     String // sealed-box envelope, sealed to user's identityKeyPublic
+  wrappedById    String // who created this wrap (audit / trust root)
   createdAt      DateTime     @default(now())
 
   @@unique([conversationId, userId, version])
@@ -174,13 +175,27 @@ model PushSubscription {
   @@index([userId])
 }
 
+// Token-based push targets for native platforms (Module F). Web Push lives in
+// PushSubscription; this covers FCM (android), APNs (ios), and the self-hosted
+// Windows channel. platform ∈ {android, ios, windows}.
+model PushDevice {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Notification {
   id             String    @id @default(uuid())
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind           String
+  kind           String // 'message' | 'call' | 'system'
   conversationId String?
-  actorId        String?
+  actorId        String? // who triggered it (metadata only — content is E2EE)
   createdAt      DateTime  @default(now())
   readAt         DateTime?
 
@@ -225,6 +240,7 @@ model Conversation {
   members     ConversationMember[]
   messages    Message[]
   keys        ConversationKey[]
+  pinnedMessageIds String?
 }
 
 model ConversationMember {
@@ -240,6 +256,7 @@ model ConversationMember {
   isMuted           Boolean    @default(false)
   isHidden          Boolean    @default(false)
   isBlocked         Boolean    @default(false)
+  clearedAt         DateTime?
 
   @@unique([conversationId, userId])
 }
@@ -259,6 +276,8 @@ model Message {
   replyTo           Message?     @relation("Replies", fields: [replyToId], references: [id])
   replies           Message[]    @relation("Replies")
   isForwarded       Boolean      @default(false)
+  // true only for server-authored SYSTEM messages (join/leave, reset OTPs) —
+  // everything else is client-side AES-256-GCM ciphertext.
   isSystemPlaintext Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt

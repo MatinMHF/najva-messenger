@@ -1,0 +1,39 @@
+.chat-view-container {
+  height: 100%;
+}
+
+.chat-view-header {
+  height: 72px;
+}
+
+[dir="rtl"] .chat-view-header .mr-3 {
+  margin-right: 0 !important;
+  margin-left: 0.75rem;
+}
+
+.chat-header-actions {
+  gap: 0.75rem;
+}
+
+.w-10 { width: 2.5rem; }
+.h-10 { height: 2.5rem; }
+.w-3 { width: 0.75rem; }
+.h-3 { height: 0.75rem; }
+.border-2 { border-width: 2px; }
+
+.chat-messages-area {
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: 0 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.pt-24 { padding-top: 6rem; }
+.pb-20 { padding-bottom: 5rem; }
+
+.chat-input-wrapper {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}

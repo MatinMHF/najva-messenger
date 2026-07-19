@@ -1,0 +1,646 @@
+/* =========================================
+   Najva auth surface — shared shell (Phase A/B redesign)
+   Faithful port of the Claude Design "Najva" auth prototypes (Login, Register,
+   Recovery). All rules are scoped under .najva-auth so the new look is
+   self-contained. Imported by every auth page.
+========================================= */
+
+.najva-auth {
+  /* light palette (design source of truth) */
+  --nj-page-bg: linear-gradient(160deg, #f4f9f9 0%, #e7f2f3 55%, #fdf3e3 100%);
+  --nj-card: rgba(255, 255, 255, 0.92);
+  --nj-card-border: rgba(23, 128, 141, 0.12);
+  --nj-ink: #0e4f58;
+  --nj-sub: #5b7f84;
+  --nj-label: #2b6d76;
+  --nj-input-bg: #fbfdfd;
+  --nj-input-border: #cfe1e3;
+  --nj-input-ink: #123f46;
+  --nj-divider: #d9e7e8;
+  --nj-muted: #8aa8ac;
+  --nj-teal: #1e8a96;
+  --nj-teal-deep: #17808d;
+  --nj-teal-2: #2fa5b3;
+  --nj-amber: #f5a623;
+  --nj-amber-ink: #e08c0b;
+  --nj-blob-a: rgba(30, 138, 150, 0.18);
+  --nj-blob-b: rgba(245, 166, 35, 0.15);
+
+  font-family: 'Nunito Sans', 'Vazirmatn', system-ui, sans-serif;
+  /* Cloud Design keeps the auth surface LTR in every language (it never binds
+     its computed pageDir), so text stays left-aligned even in Persian. */
+  direction: ltr;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  position: relative;
+  overflow: hidden;
+  background: var(--nj-page-bg);
+  transition: background 0.5s ease;
+}
+
+body.dark-theme .najva-auth {
+  --nj-page-bg: linear-gradient(160deg, #0b1d21 0%, #10272c 55%, #1e2118 100%);
+  --nj-card: rgba(17, 36, 41, 0.92);
+  --nj-card-border: rgba(47, 165, 179, 0.22);
+  --nj-ink: #dcf0f2;
+  --nj-sub: #8fb0b5;
+  --nj-label: #7fc6cf;
+  --nj-input-bg: #0d2227;
+  --nj-input-border: #2c4d53;
+  --nj-input-ink: #dcf0f2;
+  --nj-divider: #24424a;
+  --nj-muted: #6f939a;
+  --nj-blob-a: rgba(30, 138, 150, 0.22);
+  --nj-blob-b: rgba(245, 166, 35, 0.10);
+}
+
+.najva-auth a { color: var(--nj-teal-deep); text-decoration: none; }
+.najva-auth a:hover { color: var(--nj-teal-2); text-decoration: underline; }
+.najva-auth *,
+.najva-auth *::before,
+.najva-auth *::after { box-sizing: border-box; }
+.najva-auth input::placeholder { color: #9db4b6; }
+
+/* ---- ambient drifting blobs ---- */
+.najva-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+.najva-blob-a {
+  width: 480px; height: 480px;
+  top: -140px; left: -120px;
+  background: radial-gradient(circle, var(--nj-blob-a), transparent 70%);
+  animation: najva-drift-a 14s ease-in-out infinite;
+}
+.najva-blob-b {
+  width: 420px; height: 420px;
+  bottom: -120px; right: -100px;
+  background: radial-gradient(circle, var(--nj-blob-b), transparent 70%);
+  animation: najva-drift-b 17s ease-in-out infinite;
+}
+
+/* ---- round top-corner controls ---- */
+.najva-round-btn {
+  position: absolute;
+  top: 22px;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  border: 1.5px solid var(--nj-card-border);
+  background: var(--nj-card);
+  color: var(--nj-label);
+  box-shadow: 0 6px 18px -8px rgba(14, 95, 106, 0.35);
+  transition: background 0.4s, transform 0.15s;
+  z-index: 5;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+.najva-round-btn:hover { transform: scale(1.08); }
+.najva-round-btn:active { transform: scale(0.94); }
+/* Pinned to the physical right in both LTR and RTL — matches the design, whose
+   controls stay top-right regardless of language. */
+.najva-theme-btn { right: 22px; }
+.najva-lang-btn { right: 78px; }
+.najva-round-btn > * {
+  animation: najva-icon-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- card ---- */
+.najva-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--nj-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--nj-card-border);
+  border-radius: 24px;
+  padding: 40px 36px 32px;
+  box-shadow: 0 24px 60px -24px rgba(10, 40, 46, 0.4);
+  position: relative;
+  z-index: 1;
+  transition: background 0.5s ease, border-color 0.5s ease;
+  animation: najva-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Wizard cards (Register / Recovery) are a touch wider + tighter top padding. */
+.najva-card.najva-card-wide {
+  max-width: 460px;
+  padding: 36px 36px 30px;
+}
+.najva-card.najva-shaking { animation: najva-shake 0.45s ease; }
+
+.najva-logo-wrap {
+  display: flex;
+  justify-content: center;
+  animation: najva-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-logo {
+  width: 108px; height: 108px;
+  object-fit: contain;
+  animation: najva-float 5s ease-in-out infinite;
+}
+.najva-logo.najva-logo-sm { width: 84px; height: 84px; }
+
+.najva-heading {
+  text-align: center;
+  margin-top: 8px;
+  animation: najva-rise 0.7s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-heading h1 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--nj-ink);
+  transition: color 0.5s;
+}
+.najva-heading p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--nj-sub);
+  transition: color 0.5s;
+}
+/* Wizard heading is slightly smaller than the Login hero. */
+.najva-heading.najva-heading-sm { margin-top: 4px; }
+.najva-heading.najva-heading-sm h1 { font-size: 28px; }
+.najva-heading.najva-heading-sm p { font-size: 14px; margin-top: 5px; }
+
+.najva-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 28px;
+  animation: najva-rise 0.7s 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-field { display: flex; flex-direction: column; gap: 6px; }
+.najva-field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nj-label);
+  transition: color 0.5s;
+}
+.najva-hint { font-size: 12.5px; color: var(--nj-muted); }
+/* Scoped under .najva-auth so these outrank the app's global input rules
+   (input[type=...] and .fa-text input), which would otherwise force a gray
+   fill and right-align the text in Persian. */
+.najva-auth .najva-input {
+  width: 100%;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--nj-input-ink);
+  border: 1.5px solid var(--nj-input-border);
+  border-radius: 12px;
+  background: var(--nj-input-bg);
+  outline: none;
+  direction: ltr;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.5s, color 0.5s;
+}
+.najva-auth .najva-input:focus {
+  border-color: var(--nj-teal);
+  box-shadow: 0 0 0 3px rgba(30, 138, 150, 0.15);
+  background: var(--nj-input-bg);
+}
+
+.najva-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -2px;
+}
+.najva-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--nj-sub);
+  user-select: none;
+  transition: color 0.5s;
+}
+.najva-remember input {
+  width: 17px; height: 17px;
+  accent-color: var(--nj-teal);
+  cursor: pointer;
+}
+.najva-link-strong { font-size: 13.5px; font-weight: 700; }
+
+.najva-error {
+  font-size: 13.5px;
+  color: #d98a2b;
+  background: rgba(245, 166, 35, 0.12);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  border-radius: 10px;
+  padding: 10px 14px;
+  animation: najva-shake 0.45s ease;
+}
+
+/* ---- buttons ---- */
+.najva-btn-primary {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: inherit;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--nj-teal), #14707c);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.15s;
+}
+.najva-btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+.najva-btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.najva-btn-primary.is-busy { background: linear-gradient(135deg, #2a99a6, var(--nj-teal)); }
+.najva-btn-primary:disabled { cursor: default; }
+
+/* Outline (secondary) button — Back, Download, menu Cancel, etc. */
+.najva-btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--nj-teal-deep);
+  background: transparent;
+  border: 1.5px solid var(--nj-teal);
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.najva-btn-outline:hover:not(:disabled) { background: rgba(30, 138, 150, 0.08); text-decoration: none; transform: translateY(-1px); }
+.najva-btn-outline:active:not(:disabled) { transform: scale(0.98); }
+.najva-btn-outline.is-done {
+  color: #fff;
+  background: linear-gradient(135deg, var(--nj-teal), #14707c);
+  border-color: transparent;
+}
+
+/* Row of side-by-side wizard buttons (Back / Next). */
+.najva-btn-row { display: flex; gap: 12px; }
+.najva-btn-row .najva-btn-primary { margin-top: 0; }
+.najva-flex1 { flex: 1; }
+.najva-flex2 { flex: 2; }
+
+/* Inline pill CTA (e.g. "Go to sign in"). */
+.najva-btn-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 13px 28px;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--nj-teal), #14707c);
+  border: none;
+  border-radius: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.najva-btn-cta:hover { text-decoration: none; transform: translateY(-1px); color: #fff; }
+
+.najva-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0;
+}
+.najva-divider .line {
+  flex: 1; height: 1px;
+  background: var(--nj-divider);
+  transition: background 0.5s;
+}
+.najva-divider span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--nj-muted);
+  transition: color 0.5s;
+}
+
+.najva-btn-passkey {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--nj-teal-deep);
+  background: transparent;
+  border: 1.5px solid var(--nj-teal);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.najva-btn-passkey:hover:not(:disabled) {
+  background: rgba(30, 138, 150, 0.08);
+  transform: translateY(-1px);
+}
+.najva-btn-passkey:active:not(:disabled) { transform: scale(0.98); }
+.najva-btn-passkey:disabled { cursor: default; opacity: 0.85; }
+
+.najva-footer {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--nj-sub);
+  transition: color 0.5s;
+}
+.najva-footer a { font-weight: 800; color: var(--nj-amber-ink); }
+.najva-footer a:hover { color: var(--nj-amber); text-decoration: none; }
+
+.najva-spinner {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  display: inline-block;
+  animation: najva-spin 0.7s linear infinite;
+}
+.najva-spinner.sm { width: 16px; height: 16px; }
+.najva-spinner.teal {
+  border-color: rgba(47, 165, 179, 0.25);
+  border-top-color: var(--nj-teal-2);
+}
+
+/* ---- multi-step wizard (Register / Recovery) ---- */
+.najva-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 26px;
+  animation: najva-slide 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-step.najva-step-g18 { gap: 18px; }
+
+/* progress dots */
+.najva-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  animation: najva-rise 0.7s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-dot { height: 7px; border-radius: 4px; transition: all 0.4s ease; }
+
+/* recovery-keys grid */
+.najva-keys-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 16px;
+  border: 1.5px dashed var(--nj-input-border);
+  border-radius: 14px;
+  background: var(--nj-input-bg);
+  transition: background 0.5s, border-color 0.5s;
+}
+.najva-key {
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--nj-input-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  direction: ltr;
+}
+.najva-key .n { font-size: 11px; color: var(--nj-muted); width: 14px; text-align: right; flex-shrink: 0; }
+
+/* acknowledgement box */
+.najva-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--nj-sub);
+  user-select: none;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(245, 166, 35, 0.1);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+}
+.najva-ack input {
+  width: 17px; height: 17px;
+  margin-top: 1px;
+  accent-color: var(--nj-amber-ink);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* recovery menu options */
+.najva-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--nj-input-bg);
+  border: 1.5px solid var(--nj-input-border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.najva-option:hover {
+  border-color: var(--nj-teal);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -14px rgba(14, 95, 106, 0.4);
+}
+.najva-option:active { transform: scale(0.98); }
+.najva-option-icon {
+  width: 42px; height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.najva-option-icon.teal { background: rgba(30, 138, 150, 0.12); color: var(--nj-teal); }
+.najva-option-icon.amber { background: rgba(245, 166, 35, 0.15); color: var(--nj-amber-ink); }
+.najva-option-text { display: flex; flex-direction: column; gap: 2px; }
+.najva-option-title { font-size: 15px; font-weight: 800; color: var(--nj-ink); }
+.najva-option-sub { font-size: 13px; color: var(--nj-sub); }
+
+/* note / info banner */
+.najva-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--nj-sub);
+  text-align: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(30, 138, 150, 0.08);
+  border: 1px solid rgba(30, 138, 150, 0.2);
+}
+
+/* 6-digit code + recovery-key inputs (scoped to out-specify global input rules) */
+.najva-auth .najva-code-input {
+  width: 100%;
+  padding: 14px;
+  font-size: 26px;
+  font-weight: 800;
+  font-family: 'SF Mono', Consolas, monospace;
+  letter-spacing: 0.45em;
+  text-indent: 0.45em;
+  text-align: center;
+  color: var(--nj-input-ink);
+  border: 1.5px solid var(--nj-input-border);
+  border-radius: 12px;
+  background: var(--nj-input-bg);
+  outline: none;
+  direction: ltr;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.najva-auth .najva-rkey-input {
+  width: 100%;
+  padding: 14px;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'SF Mono', Consolas, monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--nj-input-ink);
+  border: 1.5px solid var(--nj-input-border);
+  border-radius: 12px;
+  background: var(--nj-input-bg);
+  outline: none;
+  direction: ltr;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.najva-auth .najva-code-input:focus,
+.najva-auth .najva-rkey-input:focus {
+  border-color: var(--nj-teal);
+  box-shadow: 0 0 0 3px rgba(30, 138, 150, 0.15);
+}
+
+.najva-timer-row { display: flex; align-items: center; justify-content: space-between; }
+.najva-timer { font-size: 13.5px; color: var(--nj-muted); font-variant-numeric: tabular-nums; }
+.najva-resend {
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 4px;
+  transition: color 0.3s;
+}
+
+/* passkey "waiting" pulsing ring */
+.najva-pk-ring {
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  background: rgba(30, 138, 150, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nj-teal);
+  animation: najva-pulse-ring 1.4s ease-out infinite;
+}
+
+/* verified-via confirmation row (reset step) */
+.najva-verified {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--nj-teal);
+  justify-content: center;
+}
+.najva-verified .check {
+  display: inline-flex;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--nj-teal);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  animation: najva-pop 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+/* ---- success state ---- */
+.najva-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  margin-bottom: 16px;
+  animation: najva-rise 0.5s ease both;
+}
+.najva-success.najva-success-wizard { margin-top: 34px; margin-bottom: 14px; }
+.najva-success-badge {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: var(--nj-teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: najva-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both,
+             najva-pulse 1.2s ease-out 0.3s;
+}
+.najva-success-badge.amber {
+  background: linear-gradient(135deg, var(--nj-amber), var(--nj-amber-ink));
+  animation: najva-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+.najva-success-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--nj-ink);
+  transition: color 0.5s;
+}
+.najva-success-title.lg { font-size: 21px; }
+.najva-success-sub {
+  font-size: 14px;
+  color: var(--nj-sub);
+  margin-top: 4px;
+  transition: color 0.5s;
+}
+
+/* ---- keyframes (najva-prefixed to avoid clashes with global animations) ---- */
+@keyframes najva-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes najva-slide { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes najva-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes najva-spin { to { transform: rotate(360deg); } }
+@keyframes najva-pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes najva-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+@keyframes najva-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40px, -30px) scale(1.08); } }
+@keyframes najva-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-35px, 25px) scale(1.05); } }
+@keyframes najva-pulse { 0% { box-shadow: 0 0 0 0 rgba(23, 128, 141, 0.35); } 100% { box-shadow: 0 0 0 16px rgba(23, 128, 141, 0); } }
+@keyframes najva-pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(30, 138, 150, 0.4); } 100% { box-shadow: 0 0 0 22px rgba(30, 138, 150, 0); } }
+@keyframes najva-icon-in { 0% { transform: rotate(-120deg) scale(0.4); opacity: 0; } 100% { transform: rotate(0deg) scale(1); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .najva-auth *,
+  .najva-auth *::before,
+  .najva-auth *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

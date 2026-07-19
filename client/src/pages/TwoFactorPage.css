@@ -1,0 +1,144 @@
+.two-factor-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.back-btn:hover {
+  background-color: var(--hover-color);
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.two-factor-content {
+  padding: 40px;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.status-icon {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.text-success {
+  color: #10b981; /* Tailwind emerald-500 */
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.description {
+  color: var(--text-secondary);
+  margin-bottom: 30px;
+  line-height: 1.5;
+}
+
+.alert {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.error-alert {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.success-alert {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.setup-section {
+  text-align: left;
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.setup-steps {
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  padding-left: 20px;
+}
+
+.setup-steps li {
+  margin-bottom: 10px;
+}
+
+.qr-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.secret-text {
+  text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.secret-text code {
+  background-color: var(--bg-color);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  user-select: all;
+}
+
+.verify-form {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}

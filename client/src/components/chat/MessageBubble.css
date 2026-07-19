@@ -1,0 +1,45 @@
+.message-wrapper {
+  width: 100%;
+}
+
+.message-bubble {
+  max-width: 70%;
+  border-radius: var(--radius-xl);
+  transition: transform var(--transition-fast);
+}
+
+.message-bubble:hover {
+  transform: scale(1.01);
+}
+
+/* LTR Default */
+.is-mine .message-bubble {
+  border-bottom-right-radius: 4px;
+}
+
+.is-other .message-bubble {
+  border-bottom-left-radius: 4px;
+}
+
+/* RTL Support */
+[dir="rtl"] .is-mine .message-bubble {
+  border-bottom-right-radius: var(--radius-xl);
+  border-bottom-left-radius: 4px;
+}
+
+[dir="rtl"] .is-other .message-bubble {
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: 4px;
+}
+
+.text-white {
+  color: #ffffff;
+}
+
+.opacity-75 {
+  opacity: 0.75;
+}
+
+.block {
+  display: block;
+}

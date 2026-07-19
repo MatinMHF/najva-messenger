@@ -1,0 +1,139 @@
+.message-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.message-input-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-bg-base);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  padding: 4px;
+  padding-left: 12px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.message-input-container:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.2);
+}
+
+.message-input-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hover-text-primary:hover {
+  color: var(--accent-primary);
+}
+
+.border-none {
+  border: none;
+}
+
+.focus-outline:focus {
+  outline: none;
+}
+
+/* Send button: accent-gradient circular button with a visible white icon. */
+.send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-gradient);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.send-btn svg {
+  color: #ffffff;
+  stroke: #ffffff;
+}
+
+.send-btn:hover {
+  box-shadow: var(--accent-glow);
+  transform: scale(1.05);
+}
+
+.send-btn:active {
+  transform: scale(0.95);
+}
+
+.bg-transparent {
+  background-color: transparent;
+}
+
+/* Pending attachment chips */
+.pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 220px;
+  padding: var(--space-1) var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.pending-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.pending-chip-remove:hover {
+  color: var(--danger);
+}
+
+[dir="rtl"] .message-input-container {
+  padding-left: 0.25rem !important;
+  padding-right: 0.75rem !important;
+}
+
+[dir="rtl"] .ml-1 {
+  margin-left: 0 !important;
+  margin-right: 0.25rem;
+}

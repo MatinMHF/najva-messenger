@@ -1,0 +1,361 @@
+/* =========================================
+   Najva composer overlays — Phase C4
+   Emoji picker, attachment menu, voice/video record button.
+   Faithful port of the composer overlay regions of "Najva Chat.dc.html".
+   Scoped under .najva-chat (reuses the --nj-* tokens from najva-chat.css).
+========================================= */
+
+/* ---- composer icon buttons (attach / emoji) ---- */
+.najva-chat .chat-input-area .icon-btn,
+.najva-chat .attach-menu .attach-trigger {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nj-muted); flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.najva-chat .chat-input-area .icon-btn:hover,
+.najva-chat .attach-menu .attach-trigger:hover { background: var(--nj-hover); color: var(--nj-teal); }
+.najva-chat .chat-input-area .icon-btn:active,
+.najva-chat .attach-menu .attach-trigger:active { transform: scale(0.88); }
+
+/* ---- voice / video record button (matches the send button footprint) ---- */
+.najva-chat .vv-record-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--nj-teal); flex-shrink: 0; position: relative;
+  transition: transform 0.15s, background 0.2s, color 0.2s;
+}
+.najva-chat .vv-record-btn:hover { transform: scale(1.07); background: var(--nj-hover); }
+.najva-chat .vv-record-btn:active { transform: scale(0.93); }
+/* while recording voice inline, the button is the teal send affordance */
+.najva-chat .vv-record-btn.rec {
+  color: #fff; background: linear-gradient(135deg, #1e8a96, #14707c);
+}
+
+/* ---- inline voice recording bar (composer morphs while recording) ---- */
+.najva-chat .nj-rec-wrap { position: relative; flex-shrink: 0; }
+.najva-chat .nj-rec-bar { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 0 6px; }
+.najva-chat .nj-rec-cancel {
+  padding: 10px 16px; border: none; border-radius: 12px; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 0.844rem; font-weight: 800; color: #d9534a; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.najva-chat .nj-rec-cancel:hover { background: rgba(224,82,66,0.08); }
+.najva-chat .nj-rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #e05242; flex-shrink: 0; animation: najva-fade 0.8s ease infinite alternate; }
+.najva-chat .nj-rec-timer { font-size: 0.938rem; font-weight: 800; color: var(--nj-ink); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.najva-chat .nj-rec-hint { flex: 1; text-align: center; font-size: 0.813rem; font-weight: 700; color: var(--nj-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.najva-chat .nj-rec-lockchip {
+  position: absolute; bottom: 54px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 9px;
+  border-radius: 18px; background: var(--nj-panel); border: 1px solid var(--nj-border);
+  box-shadow: 0 10px 26px -10px rgba(10,40,46,0.4); animation: najva-rise 0.25s ease both; z-index: 46;
+}
+
+/* ---- full-screen video recording overlay ---- */
+.najva-chat .nj-vrec-overlay {
+  position: fixed; inset: 0; z-index: 130; background: rgba(5, 22, 26, 0.8);
+  backdrop-filter: blur(6px); display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 20px; animation: najva-fade 0.2s ease both;
+}
+.najva-chat .nj-vrec-circle {
+  width: 260px; height: 260px; border-radius: 50%; position: relative; overflow: hidden;
+  background: #0e343b; border: 4px solid rgba(255,255,255,0.25);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-vrec-video { width: 100%; height: 100%; object-fit: cover; }
+.najva-chat .nj-vrec-facing {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  font-size: 0.688rem; font-weight: 800; letter-spacing: 0.06em; color: rgba(255,255,255,0.85);
+  background: rgba(5,22,26,0.5); padding: 3px 12px; border-radius: 10px; white-space: nowrap;
+}
+.najva-chat .nj-vrec-flip {
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 14px;
+  border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.1); color: #fff;
+  font-family: inherit; font-size: 0.813rem; font-weight: 800; cursor: pointer;
+}
+.najva-chat .nj-vrec-timerrow { display: flex; align-items: center; gap: 10px; }
+.najva-chat .nj-vrec-dot { width: 10px; height: 10px; border-radius: 50%; background: #e05242; animation: najva-fade 0.8s ease infinite alternate; }
+.najva-chat .nj-vrec-timer { font-size: 1.375rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.najva-chat .nj-vrec-lockchip {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 9px;
+  border-radius: 18px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
+  animation: najva-rise 0.25s ease both;
+}
+.najva-chat .nj-vrec-hint { font-size: 0.813rem; font-weight: 700; color: rgba(255,255,255,0.75); }
+.najva-chat .nj-vrec-controls { display: flex; align-items: center; gap: 18px; }
+.najva-chat .nj-vrec-cancel {
+  width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.08); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-vrec-send {
+  width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  background: linear-gradient(135deg, #1e8a96, #14707c);
+  box-shadow: 0 14px 34px -8px rgba(30,138,150,0.6); animation: najva-rise 0.25s ease both;
+}
+.najva-chat .nj-vrec-send:hover { transform: scale(1.07); }
+.najva-chat .nj-vrec-send:active { transform: scale(0.94); }
+
+/* ---- attachment menu popover ---- */
+.najva-chat .attach-menu { position: relative; display: flex; }
+.najva-chat .attach-popover {
+  position: absolute; bottom: 54px; left: 0; z-index: 45;
+  width: 230px; background: var(--nj-panel);
+  border: 1px solid var(--nj-border); border-radius: 16px;
+  box-shadow: 0 18px 44px -14px rgba(10, 40, 46, 0.45);
+  padding: 6px; display: flex; flex-direction: column;
+  animation: najva-rise 0.22s ease both;
+}
+.najva-chat .attach-option {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 12px; border: none; border-radius: 11px;
+  background: transparent; cursor: pointer; font-family: inherit;
+  font-size: 0.875rem; font-weight: 700; color: var(--nj-ink);
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .attach-option:hover { background: var(--nj-hover); }
+.najva-chat .attach-option:active { transform: scale(0.97); }
+.najva-chat .attach-option .attach-option-icon { color: var(--nj-teal); }
+.najva-chat .attach-option.files .attach-option-icon { color: #e08c0b; }
+
+/* ---- emoji picker ---- */
+.najva-chat .nj-emoji-backdrop { position: fixed; inset: 0; z-index: 40; }
+.najva-chat .nj-emoji {
+  position: absolute; bottom: 54px; right: 0; z-index: 45;
+  width: 330px; max-width: 86vw; background: var(--nj-panel);
+  border: 1px solid var(--nj-border); border-radius: 16px;
+  box-shadow: 0 18px 44px -14px rgba(10, 40, 46, 0.45);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  animation: najva-rise 0.22s ease both;
+}
+.najva-chat .nj-emoji-tabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--nj-border); padding-bottom: 6px;
+}
+.najva-chat .nj-emoji-tab {
+  width: 37px; height: 32px; border: none; border-radius: 9px; cursor: pointer;
+  font-size: 1rem; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, transform 0.15s;
+}
+.najva-chat .nj-emoji-tab:hover { transform: scale(1.12); }
+.najva-chat .nj-emoji-tab:active { transform: scale(0.9); }
+.najva-chat .nj-emoji-tab.active { background: var(--nj-hover); }
+.najva-chat .nj-emoji-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  height: 200px; overflow-y: auto; align-content: start;
+}
+.najva-chat .nj-emoji-cell {
+  height: 40px; border: none; border-radius: 9px; cursor: pointer;
+  font-size: 1.375rem; background: transparent;
+  transition: transform 0.15s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+.najva-chat .nj-emoji-cell:hover { background: var(--nj-hover); transform: scale(1.25); }
+.najva-chat .nj-emoji-cell:active { transform: scale(0.9); }
+
+/* Emoji picker mirrors to the composer's leading edge in Persian too */
+.najva-chat .msg-input-wrap { position: relative; display: contents; }
+
+/* ============ INFO PAGE (user info modal) + block confirm ============ */
+.najva-chat .nj-info-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(5, 22, 26, 0.55);
+  animation: najva-fade 0.25s ease both;
+  display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-info {
+  width: 440px; max-width: 92vw; height: min(680px, 90vh);
+  background: var(--nj-panel); border: 1px solid var(--nj-border);
+  border-radius: 20px; box-shadow: 0 30px 80px -20px rgba(5, 22, 26, 0.6);
+  overflow: hidden; display: flex; flex-direction: column;
+  animation: najva-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-info-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border-bottom: 1px solid var(--nj-border); flex-shrink: 0;
+}
+.najva-chat .nj-info-title { font-size: 1rem; font-weight: 800; color: var(--nj-ink); }
+.najva-chat .nj-info-body {
+  flex: 1; overflow-y: auto; padding: 18px 18px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.najva-chat .nj-info-hero { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.najva-chat .nj-info-avatar {
+  width: 96px; height: 96px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; font-weight: 800; color: #fff; overflow: hidden;
+}
+.najva-chat .nj-info-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.najva-chat .nj-info-name { font-size: 1.125rem; font-weight: 800; color: var(--nj-ink); text-align: center; }
+.najva-chat .nj-info-sub { font-size: 0.813rem; color: var(--nj-teal); text-align: center; }
+.najva-chat .nj-info-actions { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); gap: 8px; }
+.najva-chat .nj-info-action {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 4px; border: 1px solid var(--nj-border); border-radius: 13px;
+  background: var(--nj-panel); cursor: pointer; font-family: inherit;
+  font-size: 0.75rem; font-weight: 800; color: var(--nj-teal-deep);
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-info-action:hover { background: var(--nj-hover); }
+.najva-chat .nj-info-action:active { transform: scale(0.97); }
+.najva-chat .nj-info-copy {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px;
+  border: 1px solid var(--nj-border); border-radius: 13px; background: transparent;
+  cursor: pointer; font-family: inherit; text-align: left;
+  transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-info-copy:hover { background: var(--nj-hover); }
+.najva-chat .nj-info-copy:active { transform: scale(0.98); }
+.najva-chat .nj-info-copy-text { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.najva-chat .nj-info-copy-label { font-size: 0.781rem; font-weight: 700; color: var(--nj-teal); }
+.najva-chat .nj-info-copy-val { font-size: 0.906rem; font-weight: 700; color: var(--nj-ink); }
+.najva-chat .nj-info-copied {
+  font-size: 0.719rem; font-weight: 800; color: var(--nj-teal-deep);
+  background: rgba(30,138,150,0.1); border: 1px solid rgba(30,138,150,0.35);
+  padding: 3px 10px; border-radius: 9px; flex-shrink: 0; animation: najva-rise 0.2s ease both;
+}
+.najva-chat .nj-info-bio {
+  border: 1px solid var(--nj-border); border-radius: 13px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.najva-chat .nj-info-bio-label { font-size: 0.781rem; font-weight: 700; color: var(--nj-teal); }
+.najva-chat .nj-info-bio-text { font-size: 0.875rem; color: var(--nj-ink); line-height: 1.5; }
+.najva-chat .nj-info-block {
+  width: 100%; padding: 13px; font-size: 0.875rem; font-weight: 800; font-family: inherit;
+  color: #d9534a; background: transparent; border: 1.5px solid rgba(224,82,66,0.5);
+  border-radius: 13px; cursor: pointer; transition: background 0.15s;
+}
+.najva-chat .nj-info-block:hover { background: rgba(224,82,66,0.08); }
+.najva-chat .nj-info-more { display: flex; flex-direction: column; gap: 4px; animation: najva-drop 0.2s ease both; }
+
+/* block confirmation dialog */
+.najva-chat .nj-block-overlay {
+  position: fixed; inset: 0; z-index: 156; background: rgba(5, 22, 26, 0.55);
+  animation: najva-fade 0.25s ease both; display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-block {
+  width: 350px; max-width: 90vw; background: var(--nj-panel);
+  border: 1px solid var(--nj-border); border-radius: 18px; padding: 26px 24px 22px;
+  box-shadow: 0 30px 80px -20px rgba(5, 22, 26, 0.6);
+  display: flex; flex-direction: column; gap: 20px;
+  animation: najva-panel-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-block-top { display: flex; align-items: center; gap: 12px; }
+.najva-chat .nj-block-ic {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(224, 82, 66, 0.12); color: #d9534a;
+  display: flex; align-items: center; justify-content: center;
+}
+.najva-chat .nj-block-q { font-size: 0.938rem; font-weight: 800; line-height: 1.45; color: var(--nj-ink); }
+.najva-chat .nj-block-btns { display: flex; gap: 10px; }
+.najva-chat .nj-block-no {
+  flex: 1; padding: 12px; font-size: 0.875rem; font-weight: 700; font-family: inherit;
+  color: var(--nj-teal-deep); background: transparent; border: 1.5px solid var(--nj-teal);
+  border-radius: 11px; cursor: pointer; transition: background 0.15s;
+}
+.najva-chat .nj-block-no:hover { background: rgba(30,138,150,0.08); }
+.najva-chat .nj-block-yes {
+  flex: 1; padding: 12px; font-size: 0.875rem; font-weight: 800; font-family: inherit;
+  color: #fff; background: linear-gradient(135deg, #e05242, #c0392b);
+  border: none; border-radius: 11px; cursor: pointer; transition: transform 0.15s;
+}
+.najva-chat .nj-block-yes:active { transform: scale(0.97); }
+
+/* confirm-dialog checkboxes (clear-history / delete options) */
+.najva-chat .nj-dlg-check {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  font-size: 0.844rem; line-height: 1.4; color: var(--nj-ink); user-select: none;
+}
+.najva-chat .nj-dlg-check.sub { color: var(--nj-sub); }
+.najva-chat .nj-dlg-check input {
+  margin: 2px 0 0; width: 16px; height: 16px; flex-shrink: 0;
+  accent-color: var(--nj-teal); cursor: pointer;
+}
+/* second option reveals with a smooth height/opacity slide when the first is on */
+.najva-chat .nj-dlg-subwrap {
+  max-height: 0; opacity: 0; overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+}
+.najva-chat .nj-dlg-subwrap.open { max-height: 96px; opacity: 1; }
+
+/* ============ header: mute icon + three-dot menu ============ */
+.najva-chat .chat-name-row { display: flex; align-items: center; gap: 6px; }
+.najva-chat .chat-mute-ic { color: var(--nj-muted); flex-shrink: 0; }
+
+.najva-chat .nj-head-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.najva-chat .nj-head-menu {
+  position: absolute; top: 58px; inset-inline-end: 14px; z-index: 50; width: 250px;
+  background: var(--nj-panel); border: 1px solid var(--nj-border); border-radius: 16px;
+  box-shadow: 0 18px 44px -14px rgba(10, 40, 46, 0.45); padding: 6px;
+  animation: najva-drop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.najva-chat .nj-head-menu-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px;
+  border: none; border-radius: 11px; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 0.875rem; font-weight: 700; color: var(--nj-ink);
+  transition: background 0.15s, transform 0.15s; text-align: start;
+}
+.najva-chat .nj-head-menu-row:hover { background: var(--nj-hover); }
+.najva-chat .nj-head-menu-row:active { transform: scale(0.97); }
+.najva-chat .nj-head-menu-row.danger { color: #d9534a; }
+.najva-chat .nj-hm-ic { display: inline-flex; flex-shrink: 0; }
+.najva-chat .nj-hm-ic.teal { color: var(--nj-teal); }
+.najva-chat .nj-hm-ic.amber { color: #e08c0b; }
+.najva-chat .nj-hm-ic.danger { color: #d9534a; }
+.najva-chat .nj-hm-label { flex: 1; text-align: start; }
+.najva-chat .nj-hm-chev { color: var(--nj-muted); flex-shrink: 0; }
+
+/* ============ centered choice popup (call type / mute duration) ============ */
+.najva-chat .nj-pop-overlay {
+  position: fixed; inset: 0; z-index: 150; background: rgba(5, 22, 26, 0.55);
+  animation: najva-fade 0.25s ease both;
+}
+.najva-chat .nj-pop {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 155;
+  width: 320px; max-width: 90vw; background: var(--nj-panel);
+  border: 1px solid var(--nj-border); border-radius: 18px; padding: 18px;
+  box-shadow: 0 30px 80px -20px rgba(5, 22, 26, 0.6);
+  display: flex; flex-direction: column; gap: 8px;
+  /* Keep the centering translate INSIDE the animation — najva-panel-in ends on
+     transform:translateY(0), which would clobber translate(-50%,-50%) and shove
+     the popup off-centre. */
+  animation: najva-pop-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes najva-pop-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.najva-chat .nj-pop-title { font-size: 0.938rem; font-weight: 800; color: var(--nj-ink); padding: 0 4px 8px; }
+.najva-chat .nj-pop-opt {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px;
+  border: 1px solid var(--nj-border); border-radius: 13px; background: var(--nj-panel);
+  cursor: pointer; font-family: inherit; font-size: 0.875rem; font-weight: 800;
+  color: var(--nj-ink); text-align: start; transition: background 0.15s, border-color 0.15s;
+}
+.najva-chat .nj-pop-opt:hover { background: var(--nj-hover); border-color: var(--nj-teal); }
+.najva-chat .nj-pop-opt.slim { border: none; padding: 11px 12px; border-radius: 11px; font-weight: 700; }
+.najva-chat .nj-pop-opt.slim:hover { border: none; }
+.najva-chat .nj-pop-ic { display: inline-flex; flex-shrink: 0; }
+.najva-chat .nj-pop-ic.teal { color: var(--nj-teal); }
+.najva-chat .nj-pop-ic.amber { color: #e08c0b; }
+.najva-chat .nj-pop-cancel {
+  width: 100%; padding: 12px; border: none; border-radius: 11px; background: transparent;
+  cursor: pointer; font-family: inherit; font-size: 0.875rem; font-weight: 700;
+  color: var(--nj-muted); transition: background 0.15s, transform 0.15s;
+}
+.najva-chat .nj-pop-cancel:hover { background: var(--nj-hover); }
+.najva-chat .nj-pop-cancel:active { transform: scale(0.97); }
+
+/* ============ blocked bar (replaces composer for a blocked DM) ============ */
+.najva-chat .nj-blocked-bar {
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+  background: var(--nj-panel); border-top: 1px solid var(--nj-border); flex-shrink: 0;
+}
+.najva-chat .nj-blocked-text { flex: 1; font-size: 0.844rem; font-weight: 700; color: var(--nj-muted); }
+.najva-chat .nj-blocked-unblock {
+  padding: 10px 22px; font-size: 0.844rem; font-weight: 800; font-family: inherit; color: #fff;
+  background: linear-gradient(135deg, #e05242, #c0392b); border: none; border-radius: 11px; cursor: pointer;
+}
+.najva-chat .nj-blocked-unblock:active { transform: scale(0.97); }

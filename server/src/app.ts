@@ -9,6 +9,12 @@ import routes from './routes';
 export function createApp(): express.Express {
   const app = express();
 
+  // Behind nginx (single reverse-proxy hop): trust exactly one X-Forwarded-For
+  // entry so express-rate-limit keys on the real client IP instead of nginx's,
+  // and stops throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every proxied
+  // request. `1` (not `true`) prevents clients from spoofing the header.
+  app.set('trust proxy', 1);
+
   app.use(helmet());
   app.use(cors({
     origin: config.corsOrigin,
