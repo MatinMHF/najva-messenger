@@ -4,10 +4,7 @@
 
 If you discover a security vulnerability in Najva, please **do not** open a public GitHub issue.
 
-Instead, report it privately via one of these channels:
-
-- **GitHub Security Advisories:** [Report a vulnerability](https://github.com/MatinMHF/najva-messenger/security/advisories/new)
-- **Email:** (add your security contact email here)
+Instead, report it privately through [GitHub Security Advisories](https://github.com/MatinMHF/najva-messenger/security/advisories/new). The report is visible only to the maintainer.
 
 Please include:
 - A description of the vulnerability
