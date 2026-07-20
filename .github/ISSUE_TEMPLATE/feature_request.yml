@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a capability or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation you're in, not just the feature you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Including whether an existing setting or workaround gets you close enough.
+
+  - type: checkboxes
+    id: encryption
+    attributes:
+      label: Encryption impact
+      description: |
+        Message content and attachments are encrypted client-side, and the server
+        holds no key that can read them. Features needing server-side access to
+        plaintext — search across everyone's messages, server-side previews,
+        content scanning — conflict with that design and are unlikely to land.
+      options:
+        - label: This feature does not require the server to read message plaintext, or I've explained below why the tradeoff is worth it.

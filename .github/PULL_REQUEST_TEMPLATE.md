@@ -1,28 +1,28 @@
-## Summary
+## What this changes
 
-<!-- What does this change do, and why? -->
+<!-- A sentence or two. Link the issue it closes, if there is one. -->
 
-## Related issue
+Closes #
 
-<!-- Link to the issue this addresses, if any (e.g. "Closes #12") -->
+## Why
 
-## Testing
+<!-- The problem being solved, not a restatement of the diff. -->
 
-<!-- Describe what you ran. For a self-hosted stack, say which parts you
-     brought up (docker compose up, install.sh) and what you exercised —
-     e.g. "registered two accounts, sent E2EE messages both ways, placed a
-     video call between two browsers." -->
+## How it was verified
+
+<!-- Tests added or run, and anything checked by hand against a live instance. -->
+
+- [ ] `npm test` passes in `server/`
+- [ ] `npm test` passes in `client/`
+- [ ] Checked against a running instance
 
 ## Checklist
 
-- [ ] I read [CONTRIBUTING.md](../CONTRIBUTING.md)
-- [ ] I ran the stack locally and exercised the affected area
-- [ ] No secrets, keys, or real user data are included in this change
-- [ ] `.env.example` is updated if I added or renamed a configuration value
-- [ ] I updated the README or `docs/` if this changes setup or behavior
+- [ ] No secrets, tokens or `.env` contents in the diff
+- [ ] Touches the encryption path? Explain the key-handling change below
+- [ ] Adds an npm dependency? Note it here — the dev images bake dependencies and need rebuilding
+- [ ] Changes `install.sh` or `scripts/`? Say which parts were run on a clean Ubuntu 24.04 box
 
-## Security impact
+## Notes for the reviewer
 
-<!-- Does this touch encryption, key handling, authentication, sessions, or
-     the media/TURN path? If so, say what changed and why it is safe. If not,
-     write "none". -->
+<!-- Anything deliberately left out, known limitations, or areas you want scrutinised. -->

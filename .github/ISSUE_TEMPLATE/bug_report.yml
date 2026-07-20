@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in the messenger, the installer or the najva menu behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not report security vulnerabilities here.** Issues are public — see
+        [SECURITY.md](../blob/main/SECURITY.md) for private disclosure.
+
+        **Do not paste secrets.** Your `.env` holds signing secrets, the TURN
+        secret and the VAPID private key. Redact them before attaching anything.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Installer (install.sh)
+        - najva management menu
+        - Messaging / encryption
+        - Voice or video calls
+        - Push notifications
+        - Admin area
+        - Web client (other)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: Output of `git -C /opt/najva rev-parse --short HEAD`, if you have it.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Server OS, whether TLS is in use, and the browser if it's a client issue.
+      placeholder: |
+        Server: Ubuntu 24.04, HTTPS with a Let's Encrypt certificate
+        Browser: Firefox 128 on Android
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        From `docker compose logs --tail 100` in `/opt/najva`, or the browser console.
+        Rendered as a code block — no backticks needed. Redact secrets first.
+      render: shell
