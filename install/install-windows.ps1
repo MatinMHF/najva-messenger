@@ -51,6 +51,99 @@ if (-not $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Fatal "Please run PowerShell as Administrator and try again."
 }
 
+# ---- Existing installation --------------------------------------------------
+
+$InstallDir = if ($env:NAJVA_DIR) { $env:NAJVA_DIR } else { "$env:USERPROFILE\najva" }
+
+# Files fetched from GitHub, for both a fresh install and an update. VERSION is
+# among them so an install records what it is, and a later run has something to
+# compare against.
+$files = @{
+    'docker-compose.yml'   = 'docker-compose.yml'
+    '.env.example'         = '.env.example'
+    'nginx/nginx.conf'     = 'nginx\nginx.conf'
+    'turn/turnserver.conf' = 'turn\turnserver.conf'
+    'VERSION'              = 'VERSION'
+}
+
+function Get-InstalledVersion {
+    $f = Join-Path $InstallDir 'VERSION'
+    # Installs made before VERSION existed have no file, and must sort below
+    # every real release so an update is still offered.
+    if (Test-Path $f) { return (Get-Content $f -Raw).Trim() } else { return '0.0.0' }
+}
+
+function Get-LatestVersion {
+    # Returns $null when offline, so the caller can tell "already up to date"
+    # apart from "could not check".
+    try { return (Invoke-WebRequest "$RAW/VERSION" -UseBasicParsing).Content.Trim() }
+    catch { return $null }
+}
+
+function Test-VersionGreater {
+    param([string]$New, [string]$Old)
+    # [version] compares numerically, so 1.10.0 really is newer than 1.9.0 —
+    # a plain string compare gets that backwards.
+    try { return ([version]$New) -gt ([version]$Old) }
+    catch { return $New -ne $Old }
+}
+
+function Get-ConfigFiles {
+    foreach ($remote in $files.Keys) {
+        $local = $files[$remote]
+        $dir = Split-Path -Parent $local
+        if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        Invoke-WebRequest "$RAW/$remote" -OutFile $local -UseBasicParsing
+        Write-Host "    Downloaded $local"
+    }
+}
+
+function Update-Najva {
+    param([string]$To)
+    Write-Step "Updating Najva to $To..."
+    Set-Location $InstallDir
+    # .env is deliberately not in $files: the generated secrets and the admin
+    # credentials have to survive the update untouched.
+    Get-ConfigFiles
+    docker compose pull
+    docker compose up -d
+    if ($LASTEXITCODE -ne 0) { Write-Fatal "docker compose failed. See output above." }
+    Write-OK "Updated to $To."
+    Write-OK "Open: http://localhost"
+}
+
+# A finished install leaves .env and the compose file behind. Re-running the
+# installer over that would pull fresh config down on top of a live deployment,
+# so stop here and offer an update instead.
+if ((Test-Path (Join-Path $InstallDir '.env')) -and
+    (Test-Path (Join-Path $InstallDir 'docker-compose.yml'))) {
+
+    $current = Get-InstalledVersion
+    $latest  = Get-LatestVersion
+
+    if ($latest -and (Test-VersionGreater $latest $current)) {
+        Write-Host ""
+        Write-Warn "Najva $current is installed at $InstallDir; version $latest is available."
+        $answer = Read-Host "  Do you want to update? [y/N]"
+        if ($answer -match '^[Yy]') {
+            Update-Najva -To $latest
+            exit 0
+        }
+        Write-OK "Left unchanged."
+        exit 0
+    }
+
+    Write-Host ""
+    Write-OK "You already have it installed."
+    Write-Host "  Version $current at $InstallDir"
+    if ($null -eq $latest) {
+        Write-Warn "Could not check for a newer version. Are you online?"
+    } else {
+        Write-Host "  Already up to date."
+    }
+    exit 0
+}
+
 # ---- Step 1: Docker ---------------------------------------------------------
 Write-Step "Checking Docker..."
 
@@ -89,7 +182,6 @@ catch {
 }
 
 # ---- Step 2: Install directory ----------------------------------------------
-$InstallDir = if ($env:NAJVA_DIR) { $env:NAJVA_DIR } else { "$env:USERPROFILE\najva" }
 Write-Step "Creating install directory: $InstallDir"
 New-Item -ItemType Directory -Force -Path "$InstallDir\nginx" | Out-Null
 New-Item -ItemType Directory -Force -Path "$InstallDir\turn"  | Out-Null
@@ -99,18 +191,7 @@ Write-OK "Working directory: $InstallDir"
 # ---- Step 3: Download config files ------------------------------------------
 Write-Step "Downloading configuration files from GitHub..."
 
-$files = @{
-    'docker-compose.yml'   = 'docker-compose.yml'
-    '.env.example'         = '.env.example'
-    'nginx/nginx.conf'     = 'nginx\nginx.conf'
-    'turn/turnserver.conf' = 'turn\turnserver.conf'
-}
-
-foreach ($remote in $files.Keys) {
-    $local = $files[$remote]
-    Invoke-WebRequest "$RAW/$remote" -OutFile $local -UseBasicParsing
-    Write-Host "    Downloaded $local"
-}
+Get-ConfigFiles
 Write-OK "Config files downloaded."
 
 # ---- Step 4: .env -----------------------------------------------------------
@@ -158,6 +239,7 @@ do {
 Write-Host ""
 Write-OK "====================================="
 Write-OK "  Najva is running!"
+Write-OK "  Version: $(Get-InstalledVersion)"
 Write-OK "  Open: http://localhost"
 Write-OK "  Install dir: $InstallDir"
 Write-OK "====================================="

@@ -63,6 +63,9 @@ See [docs/ENCRYPTION.md](docs/ENCRYPTION.md) for the full key hierarchy.
 
 ## Installation
 
+The Ubuntu installer below is the supported way to run a server. There is also
+a [Windows installer](#windows) for running Najva locally on a workstation.
+
 ### Prerequisites
 
 - Ubuntu 24.04 with a public IP and root access
@@ -134,6 +137,26 @@ written again after the update rather than left at their repository defaults.
 ```bash
 najva            # pick "Check for updates"
 ```
+
+### Windows
+
+For running Najva locally rather than on a server. Requires Docker Desktop,
+which the script installs if it is missing. In PowerShell as Administrator:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+irm https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/install-windows.ps1 | iex
+```
+
+It installs to `%USERPROFILE%\najva`, or to `NAJVA_DIR` if that is set, and
+serves on `http://localhost`. There is no `najva` menu on Windows — re-running
+the installer is how you check for updates. It reports the installed version
+and stops, or offers to update if a newer one is available, and never rewrites
+an existing `.env`.
+
+This path has no domain, no certificate and no TURN relay reachable from other
+machines, so it suits a single-machine trial rather than a deployment other
+people connect to.
 
 ## Configuration
 
