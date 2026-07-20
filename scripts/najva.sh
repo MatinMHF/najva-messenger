@@ -11,17 +11,6 @@ INSTALL_DIR=/opt/najva
 cd "$INSTALL_DIR" || { echo "Install directory $INSTALL_DIR is missing."; exit 1; }
 . "$INSTALL_DIR/scripts/najva-lib.sh"
 
-# The answers given at install time live in .env; re-read them every action so
-# the menu keeps working after a domain or port change.
-load_env() {
-  DOMAIN="$(grep '^NAJVA_DOMAIN=' .env | cut -d= -f2-)"
-  HTTP_PORT="$(grep '^NAJVA_HTTP_PORT=' .env | cut -d= -f2-)"
-  HTTPS_PORT="$(grep '^NAJVA_HTTPS_PORT=' .env | cut -d= -f2-)"
-  LE_EMAIL="$(grep '^VAPID_SUBJECT=' .env | cut -d: -f2-)"
-  HOSTNAME_="${DOMAIN:-$(hostname -I | awk '{print $1}')}"
-  [ -n "$DOMAIN" ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ] && TLS=yes || TLS=no
-}
-
 pause() { read -rp "  Press Enter to continue..." _ </dev/tty; }
 
 retry_ssl() {
@@ -100,7 +89,33 @@ status() {
   load_env
   docker compose ps
   echo
+  info "Version: $(installed_version)"
   info "Domain: ${DOMAIN:-<none>}   TLS: $TLS   Ports: $HTTP_PORT/$HTTPS_PORT"
+}
+
+check_updates() {
+  local current latest ans
+  current="$(installed_version)"
+  info "Installed version: $current"
+  info "Checking for updates..."
+
+  latest="$(latest_version || true)"
+  if [ -z "$latest" ]; then
+    warn "Could not check for updates. Is the server online?"
+    return
+  fi
+
+  if ! version_gt "$latest" "$current"; then
+    info "You are on the latest version ($current)."
+    return
+  fi
+
+  bold "  Version $latest is available."
+  read -rp "  Do you want to update? [y/N] " ans </dev/tty
+  case "$ans" in
+    y|Y) perform_update || warn "Update failed; the running install was left alone." ;;
+    *)   info "Left unchanged." ;;
+  esac
 }
 
 while :; do
@@ -114,6 +129,7 @@ while :; do
     5) Start the service
     6) Status
     7) Logs (follow, Ctrl-C to exit)
+    8) Check for updates
     0) Quit
 MENU
   read -rp "  Choice: " choice </dev/tty
@@ -125,6 +141,7 @@ MENU
     5) docker compose up -d; info "Started."; pause ;;
     6) status; pause ;;
     7) docker compose logs -f --tail 100 || true ;;
+    8) check_updates; pause ;;
     0|q) exit 0 ;;
     *) warn "Unknown choice." ;;
   esac

@@ -106,12 +106,34 @@ The installer places a `najva` command on the server. Running it opens a menu:
 | Restart the service | `docker compose restart` |
 | Stop the service | `docker compose down` |
 | Start the service | `docker compose up -d` |
-| Status | Container states, domain, TLS state and ports |
+| Status | Version, container states, domain, TLS state and ports |
 | Logs | Follows the aggregated container logs |
+| Check for updates | Compares the installed version against `main` and offers to update |
 
 Retrying the certificate updates the environment file, the TURN realm and the
 Nginx configuration in a single step, so moving an IP-only instance onto a
 domain is one menu choice rather than a manual edit of three files.
+
+## Updating
+
+The installed version is recorded in `VERSION` at the root of the checkout.
+Both the installer and the management menu compare it against the same file on
+`main`, so there is one source of truth for what "current" means.
+
+Re-running the installer on a server that already has Najva will not reinstall
+it. It reports the installed version and stops, or offers to update if `main`
+has a newer one — it never regenerates the secrets or resets the admin account
+of a working install.
+
+Updating fast-forwards the checkout, regenerates the Nginx and TURN
+configuration from the answers in `.env`, rebuilds the images and restarts the
+stack. `.env` is not tracked by git, so the secrets and the admin credentials
+survive; the generated configuration files are tracked, which is why they are
+written again after the update rather than left at their repository defaults.
+
+```bash
+najva            # pick "Check for updates"
+```
 
 ## Configuration
 

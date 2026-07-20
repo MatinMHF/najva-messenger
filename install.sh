@@ -18,6 +18,38 @@ die()  { printf '\033[31m  x %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "Run as root (sudo bash install.sh)."
 
+# ------------------------------------------------------- existing installation
+
+# A finished install leaves the checkout and its generated .env behind. Re-running
+# the installer over that would overwrite every secret and reset the admin
+# account, so stop here and offer an update instead.
+if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/.env" ]; then
+  cd "$INSTALL_DIR"
+  . "$INSTALL_DIR/scripts/najva-lib.sh"
+
+  CURRENT="$(installed_version)"
+  LATEST="$(latest_version || true)"
+
+  if [ -n "$LATEST" ] && version_gt "$LATEST" "$CURRENT"; then
+    bold "Najva $CURRENT is installed at $INSTALL_DIR; version $LATEST is available."
+    read -rp "  Do you want to update? [y/N] " ANSWER </dev/tty
+    case "$ANSWER" in
+      y|Y) perform_update; exit $? ;;
+      *)   info "Left unchanged. Run 'najva' to manage it."; exit 0 ;;
+    esac
+  fi
+
+  bold "You already have it installed."
+  info "Version $CURRENT at $INSTALL_DIR."
+  if [ -z "$LATEST" ]; then
+    warn "Could not check for a newer version. Is the server online?"
+  else
+    info "Already up to date."
+  fi
+  info "Run 'najva' to manage it."
+  exit 0
+fi
+
 # ---------------------------------------------------------------- dependencies
 
 bold "==> Installing dependencies"

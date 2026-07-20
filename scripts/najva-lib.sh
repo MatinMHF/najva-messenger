@@ -207,3 +207,82 @@ issue_certificate() {
     --email "$LE_EMAIL" -d "$DOMAIN" --keep-until-expiring
 }
 
+# ---------------------------------------------------------------- environment
+
+# The answers given at install time live in .env; re-read them before every
+# action so the menu keeps working after a domain or port change. Expects
+# cwd = install dir.
+load_env() {
+  DOMAIN="$(grep '^NAJVA_DOMAIN=' .env | cut -d= -f2-)"
+  HTTP_PORT="$(grep '^NAJVA_HTTP_PORT=' .env | cut -d= -f2-)"
+  HTTPS_PORT="$(grep '^NAJVA_HTTPS_PORT=' .env | cut -d= -f2-)"
+  LE_EMAIL="$(grep '^VAPID_SUBJECT=' .env | cut -d: -f2-)"
+  HOSTNAME_="${DOMAIN:-$(hostname -I | awk '{print $1}')}"
+  [ -n "$DOMAIN" ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ] && TLS=yes || TLS=no
+}
+
+# ---------------------------------------------------------------- versioning
+
+# Branch the install tracks. Overridable so a fork or a test install can follow
+# something other than main.
+NAJVA_BRANCH="${NAJVA_BRANCH:-main}"
+
+# Version of the checkout in $1 (default: cwd). Installs made before VERSION
+# existed have no file, and must sort below every real release.
+installed_version() {
+  local dir="${1:-.}"
+  if [ -r "$dir/VERSION" ]; then
+    tr -d ' \t\r\n' < "$dir/VERSION"
+  else
+    printf '0.0.0'
+  fi
+}
+
+# Version on the tracked branch. Needs the network: returns non-zero and prints
+# nothing when the fetch fails, so callers can tell "no update available" apart
+# from "could not check".
+latest_version() {
+  local dir="${1:-.}"
+  command -v git >/dev/null || return 1
+  git -C "$dir" fetch --quiet origin "$NAJVA_BRANCH" 2>/dev/null || return 1
+  git -C "$dir" show "origin/$NAJVA_BRANCH:VERSION" 2>/dev/null | tr -d ' \t\r\n'
+}
+
+# True when $1 is strictly newer than $2. sort -V understands 1.10.0 > 1.9.0,
+# which a plain string compare gets wrong.
+version_gt() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]
+}
+
+# Fast-forwards the checkout to the tracked branch and restarts the stack.
+# Expects cwd = install dir. Returns non-zero if the update could not be applied.
+perform_update() {
+  local from to
+  from="$(installed_version)"
+
+  bold "==> Updating Najva"
+  git fetch --quiet origin "$NAJVA_BRANCH" 2>/dev/null \
+    || { warn "Could not reach the repository."; return 1; }
+  git reset --hard "origin/$NAJVA_BRANCH" >/dev/null 2>&1 \
+    || { warn "Could not apply the update. Check 'git -C $PWD status'."; return 1; }
+  to="$(installed_version)"
+
+  # .env is gitignored so the secrets survive the reset, but nginx.conf and
+  # turnserver.conf are tracked — the reset just threw away the install-time
+  # answers stamped into them, so put them back before anything restarts.
+  load_env
+  write_static_config
+  write_nginx_conf "$TLS"
+  if [ "$TLS" = yes ]; then apply_urls https "$HTTPS_PORT"; else apply_urls http "$HTTP_PORT"; fi
+
+  info "Rebuilding containers (this takes a few minutes)..."
+  docker compose build >/dev/null
+  docker compose up -d
+
+  # The menu script is copied to /usr/local/bin at install time, so a changed
+  # copy in the repo only takes effect once it is reinstalled.
+  install -m 755 scripts/najva.sh /usr/local/bin/najva
+
+  info "Updated $from -> $to"
+}
+
