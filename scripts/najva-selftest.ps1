@@ -24,7 +24,7 @@ $installer = Join-Path $repo 'install\install-windows.ps1'
 # Pull just the function definitions out of the installer via its own parser, so
 # the checks run against the shipped code rather than a copy that can drift.
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$null, [ref]$null)
-$wanted = @('New-RandomSecret', 'Get-EnvValue', 'Write-EnvFile', 'Set-TurnConfig')
+$wanted = @('New-RandomSecret', 'Get-EnvValue', 'Set-EnvValue', 'Write-EnvFile', 'Set-TurnConfig')
 foreach ($fn in $ast.FindAll({ param($n)
         $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
     if ($wanted -contains $fn.Name) { . ([scriptblock]::Create($fn.Extent.Text)) }
@@ -87,10 +87,38 @@ try {
     Check "written without a BOM" `
         (-not ($firstBytes[0] -eq 0xEF -and $firstBytes[1] -eq 0xBB -and $firstBytes[2] -eq 0xBF))
 
+    # --- Set-EnvValue ---------------------------------------------------------
+
+    # .env.example ships VAPID_PUBLIC_KEY= empty. Writing the generated key must
+    # replace that line, not add a second one — dotenv takes the first match, so
+    # a duplicate would leave push silently disabled.
+    Check "VAPID_PUBLIC_KEY starts empty" ([string]::IsNullOrEmpty((Get-EnvValue 'VAPID_PUBLIC_KEY' $envPath)))
+
+    Set-EnvValue 'VAPID_PUBLIC_KEY' 'vapid-public-test' $envPath
+    Check "VAPID_PUBLIC_KEY is set" ((Get-EnvValue 'VAPID_PUBLIC_KEY' $envPath) -eq 'vapid-public-test')
+    Check "no duplicate VAPID_PUBLIC_KEY line" `
+        (@(Get-Content $envPath | Where-Object { $_ -match '^VAPID_PUBLIC_KEY=' }).Count -eq 1)
+
+    # A key absent from the file has to be appended rather than dropped.
+    Set-EnvValue 'A_BRAND_NEW_KEY' 'appended' $envPath
+    Check "absent key is appended" ((Get-EnvValue 'A_BRAND_NEW_KEY' $envPath) -eq 'appended')
+
+    # Overwriting twice must not accumulate lines.
+    Set-EnvValue 'A_BRAND_NEW_KEY' 'second' $envPath
+    Check "overwrite is idempotent" `
+        (@(Get-Content $envPath | Where-Object { $_ -match '^A_BRAND_NEW_KEY=' }).Count -eq 1)
+    Check "overwrite takes the new value" ((Get-EnvValue 'A_BRAND_NEW_KEY' $envPath) -eq 'second')
+
     # --- Set-TurnConfig against the real coturn config ------------------------
 
     $turnSrc = Join-Path $repo 'turn\turnserver.conf'
     $turnDst = Join-Path $tmp 'turn\turnserver.conf'
+
+    # The committed file must not pin external-ip: coturn advertises it in relay
+    # candidates, so any value here points every install at one dev machine.
+    Check "committed turnserver.conf pins no external-ip" `
+        (@(Get-Content $turnSrc | Where-Object { $_ -match '^external-ip=' }).Count -eq 0)
+
     Copy-Item $turnSrc $turnDst -Force
 
     Set-TurnConfig -Secret 'turn-test-secret' | Out-Null

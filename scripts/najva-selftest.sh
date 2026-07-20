@@ -59,6 +59,15 @@ check "strips whitespace"        "1.2.3" "$(installed_version "$tmp")"
 repo_version="$(installed_version "$(dirname "$0")/..")"
 check "repo VERSION is readable" yes "$([ -n "$repo_version" ] && echo yes || echo no)"
 
+# --- committed coturn config --------------------------------------------------
+
+# coturn advertises external-ip in relay candidates, so a value committed here
+# would point every install at whichever machine it was captured on.
+# write_static_config appends the right one per host.
+turn_conf="$(dirname "$0")/../turn/turnserver.conf"
+check "turnserver.conf pins no external-ip" \
+  "0" "$(grep -c '^external-ip=' "$turn_conf" || true)"
+
 echo
 [ "$fail" -eq 0 ] && echo "all checks passed" || echo "FAILURES"
 exit "$fail"

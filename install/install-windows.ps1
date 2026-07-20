@@ -107,6 +107,24 @@ function Get-EnvValue {
     return $null
 }
 
+function Set-EnvValue {
+    param([string]$Key, [string]$Value, [string]$Path = (Join-Path $InstallDir '.env'))
+    $out   = New-Object System.Collections.Generic.List[string]
+    $found = $false
+    foreach ($line in (Get-Content $Path)) {
+        if ($line -match "^\s*$([regex]::Escape($Key))=") {
+            # .env.example already carries empty VAPID_* lines, so appending
+            # would leave two entries for one key and dotenv would take the
+            # empty one.
+            $out.Add("$Key=$Value"); $found = $true
+        } else {
+            $out.Add($line)
+        }
+    }
+    if (-not $found) { $out.Add("$Key=$Value") }
+    [System.IO.File]::WriteAllLines($Path, $out, (New-Object System.Text.UTF8Encoding($false)))
+}
+
 # Rewrites whole KEY=... lines instead of searching for placeholder text. The
 # previous version replaced literal strings that no longer appear in
 # .env.example, so every replacement silently did nothing and each install kept
@@ -312,7 +330,25 @@ do {
     $ps = docker compose ps --format json 2>$null
 } while ($waited -lt 60 -and -not ($ps -match 'healthy'))
 
-# ---- Step 7: Admin account --------------------------------------------------
+# ---- Step 7: Push notification keys -----------------------------------------
+# web-push lives in the server image, so the keypair is generated there rather
+# than adding another host dependency. Without this the VAPID_* keys stay empty
+# and the server disables Web Push.
+if ([string]::IsNullOrWhiteSpace((Get-EnvValue 'VAPID_PUBLIC_KEY'))) {
+    Write-Step "Generating push notification keys..."
+    $keys = docker compose exec -T server node -e "const k=require('web-push').generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>$null
+    $parts = if ($keys) { (($keys | Out-String).Trim() -split '\s+') } else { @() }
+    if ($parts.Count -eq 2) {
+        Set-EnvValue 'VAPID_PUBLIC_KEY'  $parts[0]
+        Set-EnvValue 'VAPID_PRIVATE_KEY' $parts[1]
+        docker compose up -d server | Out-Null
+        Write-OK "Push keys generated."
+    } else {
+        Write-Warn "Could not generate VAPID keys; push notifications stay disabled."
+    }
+}
+
+# ---- Step 8: Admin account --------------------------------------------------
 # Nothing in docker-compose.yml seeds the database, so without this the admin
 # credentials written to .env never produce an account and there is no way to
 # sign in as an administrator.
