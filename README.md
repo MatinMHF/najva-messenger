@@ -149,10 +149,11 @@ irm https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install/inst
 ```
 
 It installs to `%USERPROFILE%\najva`, or to `NAJVA_DIR` if that is set, and
-serves on `http://localhost`. There is no `najva` menu on Windows — re-running
-the installer is how you check for updates. It reports the installed version
-and stops, or offers to update if a newer one is available, and never rewrites
-an existing `.env`.
+serves on `http://localhost`. It asks for an admin username and password, then
+generates every other secret at random. There is no `najva` menu on Windows —
+re-running the installer is how you check for updates. It reports the installed
+version and stops, or offers to update if a newer one is available, and never
+rewrites an existing `.env`.
 
 This path has no domain, no certificate and no TURN relay reachable from other
 machines, so it suits a single-machine trial rather than a deployment other

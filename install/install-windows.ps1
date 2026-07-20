@@ -98,6 +98,62 @@ function Get-ConfigFiles {
     }
 }
 
+function Get-EnvValue {
+    param([string]$Key, [string]$Path = (Join-Path $InstallDir '.env'))
+    if (-not (Test-Path $Path)) { return $null }
+    foreach ($line in (Get-Content $Path)) {
+        if ($line -match "^\s*$([regex]::Escape($Key))=(.*)$") { return $Matches[1] }
+    }
+    return $null
+}
+
+# Rewrites whole KEY=... lines instead of searching for placeholder text. The
+# previous version replaced literal strings that no longer appear in
+# .env.example, so every replacement silently did nothing and each install kept
+# the example's published secrets. Matching on the key cannot fail that way.
+function Write-EnvFile {
+    param([string]$Template, [string]$Path, [hashtable]$Values)
+    $out  = New-Object System.Collections.Generic.List[string]
+    $seen = @{}
+    foreach ($line in (Get-Content $Template)) {
+        $m = [regex]::Match($line, '^\s*([A-Za-z_][A-Za-z0-9_]*)=')
+        if ($m.Success -and $Values.ContainsKey($m.Groups[1].Value)) {
+            $key = $m.Groups[1].Value
+            $out.Add("$key=$($Values[$key])")
+            $seen[$key] = $true
+        } else {
+            $out.Add($line)
+        }
+    }
+    # Keys the template does not carry at all — SERVER_SECRET is absent from
+    # .env.example — still have to be written, or the server falls back to the
+    # hardcoded default in server/src/config/index.ts.
+    foreach ($key in $Values.Keys) {
+        if (-not $seen.ContainsKey($key)) { $out.Add("$key=$($Values[$key])") }
+    }
+    # WriteAllLines rather than Set-Content: Windows PowerShell writes a BOM for
+    # -Encoding UTF8, and a BOM ahead of the first line breaks dotenv parsing.
+    [System.IO.File]::WriteAllLines($Path, $out, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+# coturn validates the time-limited credentials the API server mints, so its
+# static-auth-secret must equal TURN_SECRET in .env or every relayed call fails
+# to authenticate. turnserver.conf is re-downloaded on install and on update,
+# which reverts it to the checked-in default, so this runs after both.
+function Set-TurnConfig {
+    param([string]$Secret)
+    $conf = Join-Path $InstallDir 'turn\turnserver.conf'
+    if (-not (Test-Path $conf) -or [string]::IsNullOrWhiteSpace($Secret)) { return }
+    $lines = Get-Content $conf
+    $lines = $lines -replace '^static-auth-secret=.*', "static-auth-secret=$Secret"
+    $lines = $lines -replace '^realm=.*', 'realm=localhost'
+    # The checked-in file pins a WSL2 development address. Left in place it
+    # advertises relay candidates on an IP this machine does not own.
+    $lines = $lines -replace '^external-ip=.*', '# external-ip unset by the installer (checked-in value was a dev address)'
+    [System.IO.File]::WriteAllLines($conf, $lines, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "    Stamped TURN secret into turn\turnserver.conf"
+}
+
 function Update-Najva {
     param([string]$To)
     Write-Step "Updating Najva to $To..."
@@ -105,6 +161,9 @@ function Update-Najva {
     # .env is deliberately not in $files: the generated secrets and the admin
     # credentials have to survive the update untouched.
     Get-ConfigFiles
+    # The freshly downloaded turnserver.conf carries the repository default
+    # again, so the running install's secret has to be stamped back in.
+    Set-TurnConfig -Secret (Get-EnvValue 'TURN_SECRET')
     docker compose pull
     docker compose up -d
     if ($LASTEXITCODE -ne 0) { Write-Fatal "docker compose failed. See output above." }
@@ -198,28 +257,46 @@ Write-OK "Config files downloaded."
 Write-Step "Configuring environment..."
 
 if (Test-Path '.env') {
-    Write-Warn ".env already exists — skipping secret generation."
+    Write-Warn ".env already exists — keeping the existing secrets."
 } else {
-    $jwtSecret  = New-RandomSecret 32
-    $jwtRefresh = New-RandomSecret 32
+    $adminUser = Read-Host "  Admin username [admin]"
+    if ([string]::IsNullOrWhiteSpace($adminUser)) { $adminUser = 'admin' }
+
+    # Asked for rather than defaulted: .env.example ships a published admin
+    # password, and the previous installer left it in place on every install.
+    while ($true) {
+        $secure1 = Read-Host "  Admin password (min 8 chars)" -AsSecureString
+        $secure2 = Read-Host "  Confirm password" -AsSecureString
+        $adminPass  = [System.Net.NetworkCredential]::new('', $secure1).Password
+        $adminPass2 = [System.Net.NetworkCredential]::new('', $secure2).Password
+        if ($adminPass -ne $adminPass2) { Write-Warn "Passwords do not match."; continue }
+        if ($adminPass.Length -lt 8)    { Write-Warn "Password too short."; continue }
+        break
+    }
+
     $dbPassword = New-RandomSecret 24
-    $turnSecret = New-RandomSecret 24
 
-    (Get-Content '.env.example') `
-        -replace 'change_me_strong_password',          $dbPassword `
-        -replace 'change_me_32_random_bytes_minimum',  $jwtSecret `
-        -replace 'change_me_another_32_random_bytes',  $jwtRefresh `
-        -replace 'change_me_turn_secret',              $turnSecret `
-        | Set-Content '.env'
-
-    # Fix DATABASE_URL too
-    (Get-Content '.env') -replace `
-        'postgresql://najva:change_me_strong_password@', `
-        "postgresql://najva:${dbPassword}@" | Set-Content '.env'
+    Write-EnvFile -Template '.env.example' -Path '.env' -Values @{
+        'NODE_ENV'           = 'production'
+        'POSTGRES_PASSWORD'  = $dbPassword
+        'DATABASE_URL'       = "postgresql://najva:$dbPassword@postgres:5432/najva"
+        'JWT_SECRET'         = New-RandomSecret 32
+        'JWT_REFRESH_SECRET' = New-RandomSecret 32
+        'SERVER_SECRET'      = New-RandomSecret 32
+        'MEDIA_JWT_SECRET'   = New-RandomSecret 32
+        'TURN_SECRET'        = New-RandomSecret 24
+        'TURN_PASSWORD'      = New-RandomSecret 16
+        'ADMIN_USERNAME'     = $adminUser
+        'ADMIN_PASSWORD'     = $adminPass
+    }
 
     Write-OK ".env created with generated secrets."
     Write-Warn "Back up $InstallDir\.env — losing it means losing access to encrypted data."
 }
+
+# Runs whether .env was just written or already existed, so an install made by
+# the older script gets its coturn secret lined up on the next run.
+Set-TurnConfig -Secret (Get-EnvValue 'TURN_SECRET')
 
 # ---- Step 5: Pull & Start ---------------------------------------------------
 Write-Step "Pulling images and starting Najva services (first run may take several minutes)..."
@@ -234,6 +311,19 @@ do {
     Start-Sleep 5; $waited += 5
     $ps = docker compose ps --format json 2>$null
 } while ($waited -lt 60 -and -not ($ps -match 'healthy'))
+
+# ---- Step 7: Admin account --------------------------------------------------
+# Nothing in docker-compose.yml seeds the database, so without this the admin
+# credentials written to .env never produce an account and there is no way to
+# sign in as an administrator.
+Write-Step "Creating the admin account..."
+docker compose exec -T server npx prisma db seed 2>&1 | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-OK "Admin account created."
+} else {
+    Write-Warn "Seeding failed. Check 'docker compose logs server', then re-run:"
+    Write-Warn "    docker compose exec -T server npx prisma db seed"
+}
 
 # ---- Done -------------------------------------------------------------------
 Write-Host ""
