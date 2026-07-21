@@ -78,9 +78,26 @@ else
 fi
 cd "$INSTALL_DIR"
 
+# Shared config/cert helpers, also used by the `najva` management menu.
+. "$INSTALL_DIR/scripts/najva-lib.sh"
+
 # ---------------------------------------------------------------- questions
 
 bold "==> Configuration"
+
+# A run that failed partway still left its .env behind. Those secrets already
+# encrypt whatever is in the database and the admin account was created from
+# them, so reuse the answers rather than asking again and regenerating them.
+if [ -f .env ] && grep -q '^ADMIN_USERNAME=' .env && grep -q '^NAJVA_HTTP_PORT=' .env; then
+  load_env
+  ADMIN_USERNAME="$(grep '^ADMIN_USERNAME=' .env | cut -d= -f2-)"
+  PUBLIC_IP="$(grep '^MEDIASOUP_ANNOUNCED_IP=' .env | cut -d= -f2-)"
+  info "Reusing the answers already in $INSTALL_DIR/.env"
+  info "Admin '$ADMIN_USERNAME', ports $HTTP_PORT/$HTTPS_PORT, domain ${DOMAIN:-<none>}"
+  info "Run 'najva' to change any of them."
+else
+# The questions and the .env heredoc below are deliberately left unindented:
+# the heredoc body is written to .env verbatim.
 
 read -rp "  HTTP port  [80]: " HTTP_PORT </dev/tty
 HTTP_PORT="${HTTP_PORT:-80}"
@@ -163,9 +180,8 @@ ADMIN_USERNAME=$ADMIN_USERNAME
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 EOF
 chmod 600 .env
+fi
 
-# Shared config/cert helpers, also used by the `najva` management menu.
-. "$INSTALL_DIR/scripts/najva-lib.sh"
 write_static_config
 
 TLS=no
