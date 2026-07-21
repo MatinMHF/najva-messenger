@@ -24,6 +24,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
+# prisma/seed.ts is run with tsx and imports from ../src, so the sources and the
+# tsconfig that resolves their paths have to be here too — dist alone is not enough.
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./
 
 EXPOSE 3000
 
