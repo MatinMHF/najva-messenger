@@ -240,9 +240,15 @@ if ! grep -q '^VAPID_PUBLIC_KEY=' .env; then
 fi
 
 bold "==> Creating the admin account"
-docker compose exec -T server npx prisma db seed </dev/null >/dev/null 2>&1 \
-  && info "Admin '$ADMIN_USERNAME' created." \
-  || warn "Seeding failed — run 'najva' and pick 'Reset admin credentials'."
+# `npx prisma db seed` needs a prisma.seed key in package.json, which this
+# project does not use — the seed is a plain npm script. Keep the failure
+# output: a silent seed failure leaves an install with no way to log in.
+if SEED_OUT="$(docker compose exec -T server npm run seed </dev/null 2>&1)"; then
+  info "Admin '$ADMIN_USERNAME' created."
+else
+  warn "Seeding failed — run 'najva' and pick 'Reset admin credentials'."
+  printf '%s\n' "$SEED_OUT" | tail -5
+fi
 
 install -m 755 scripts/najva.sh /usr/local/bin/najva
 printf 'INSTALL_DIR=%s\n' "$INSTALL_DIR" > /etc/najva.conf

@@ -78,10 +78,15 @@ reset_admin() {
   grep -v '^ADMIN_PASSWORD=' .env > .env.new && printf 'ADMIN_PASSWORD=%s\n' "$pass" >> .env.new
   mv .env.new .env && chmod 600 .env
 
-  if docker compose exec -T server npx prisma db seed </dev/null >/dev/null 2>&1; then
+  # exec reuses the environment the container started with, so the new
+  # credentials only reach the seed once the container has been recreated.
+  docker compose up -d server >/dev/null
+
+  if SEED_OUT="$(docker compose exec -T server npm run seed </dev/null 2>&1)"; then
     info "Admin '$user' recreated."
   else
-    warn "Seeding failed. Check 'docker compose logs server'."
+    warn "Seeding failed:"
+    printf '%s\n' "$SEED_OUT" | tail -5
   fi
 }
 
