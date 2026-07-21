@@ -112,6 +112,7 @@ The installer places a `najva` command on the server. Running it opens a menu:
 | Status | Version, container states, domain, TLS state and ports |
 | Logs | Follows the aggregated container logs |
 | Check for updates | Compares the installed version against `main` and offers to update |
+| Uninstall | Removes the containers, images, volumes, the checkout and all data (asks for confirmation) |
 
 Retrying the certificate updates the environment file, the TURN realm and the
 Nginx configuration in a single step, so moving an IP-only instance onto a
@@ -136,6 +137,22 @@ written again after the update rather than left at their repository defaults.
 
 ```bash
 najva            # pick "Check for updates"
+```
+
+## Uninstalling
+
+Run `najva` and pick "Uninstall". It stops and removes the containers, images
+and volumes, then deletes the checkout at `/opt/najva`, the `najva` command and
+`/etc/najva.conf`. All stored data is removed — messages are end-to-end
+encrypted and cannot be recovered afterwards, so it asks for confirmation
+first.
+
+If an install failed partway and the `najva` command was never placed, the same
+cleanup by hand is:
+
+```bash
+cd /opt/najva && docker compose down -v --rmi local; cd /
+rm -rf /opt/najva /etc/najva.conf /usr/local/bin/najva
 ```
 
 ### Windows

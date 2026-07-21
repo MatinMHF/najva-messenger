@@ -118,6 +118,21 @@ check_updates() {
   esac
 }
 
+uninstall() {
+  warn "This removes Najva completely: containers, images, volumes, the"
+  warn "checkout at $INSTALL_DIR and all stored data. Messages are"
+  warn "end-to-end encrypted and will not be recoverable."
+  read -rp "  Type 'uninstall' to confirm: " ok </dev/tty
+  [ "$ok" = "uninstall" ] || { info "Left unchanged."; return; }
+
+  docker compose down -v --rmi local 2>/dev/null || true
+  cd /
+  rm -rf "$INSTALL_DIR" /etc/najva.conf /usr/local/bin/najva
+  rm -f /etc/letsencrypt/renewal-hooks/deploy/najva.sh
+  info "Najva has been uninstalled."
+  exit 0
+}
+
 while :; do
   echo
   bold "  Najva Messenger"
@@ -130,6 +145,7 @@ while :; do
     6) Status
     7) Logs (follow, Ctrl-C to exit)
     8) Check for updates
+    9) Uninstall
     0) Quit
 MENU
   read -rp "  Choice: " choice </dev/tty
@@ -142,6 +158,7 @@ MENU
     6) status; pause ;;
     7) docker compose logs -f --tail 100 || true ;;
     8) check_updates; pause ;;
+    9) uninstall; pause ;;
     0|q) exit 0 ;;
     *) warn "Unknown choice." ;;
   esac
