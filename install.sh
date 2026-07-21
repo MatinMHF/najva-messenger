@@ -200,8 +200,11 @@ docker compose build >/dev/null
 docker compose up -d
 
 info "Waiting for the API to come up..."
+# Every `docker compose exec` below reads from /dev/null. Under `curl | bash` the
+# script itself arrives on stdin, and exec would otherwise consume the rest of it
+# and end the install silently right here.
 for _ in $(seq 1 60); do
-  docker compose exec -T server node -e 'process.exit(0)' >/dev/null 2>&1 && break
+  docker compose exec -T server node -e 'process.exit(0)' </dev/null >/dev/null 2>&1 && break
   sleep 2
 done
 
@@ -210,7 +213,7 @@ done
 if ! grep -q '^VAPID_PUBLIC_KEY=' .env; then
   bold "==> Generating push notification keys"
   KEYS="$(docker compose exec -T server node -e \
-    'const k=require("web-push").generateVAPIDKeys();console.log(k.publicKey+" "+k.privateKey)' 2>/dev/null || true)"
+    'const k=require("web-push").generateVAPIDKeys();console.log(k.publicKey+" "+k.privateKey)' </dev/null 2>/dev/null || true)"
   if [ -n "$KEYS" ]; then
     printf 'VAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\n' ${KEYS} >> .env
     docker compose up -d server >/dev/null
@@ -221,7 +224,7 @@ if ! grep -q '^VAPID_PUBLIC_KEY=' .env; then
 fi
 
 bold "==> Creating the admin account"
-docker compose exec -T server npx prisma db seed >/dev/null 2>&1 \
+docker compose exec -T server npx prisma db seed </dev/null >/dev/null 2>&1 \
   && info "Admin '$ADMIN_USERNAME' created." \
   || warn "Seeding failed — run 'najva' and pick 'Reset admin credentials'."
 

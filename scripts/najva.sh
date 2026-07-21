@@ -71,14 +71,14 @@ reset_admin() {
     p.user.deleteMany({ where: { username: { in: names } } })
       .then(r => console.log("removed " + r.count))
       .finally(() => p.$disconnect());
-  ' >/dev/null
+  ' </dev/null >/dev/null
 
   sed -i "s#^ADMIN_USERNAME=.*#ADMIN_USERNAME=$user#" .env
   # The password can contain '#', so build the replacement with a literal file edit.
   grep -v '^ADMIN_PASSWORD=' .env > .env.new && printf 'ADMIN_PASSWORD=%s\n' "$pass" >> .env.new
   mv .env.new .env && chmod 600 .env
 
-  if docker compose exec -T server npx prisma db seed >/dev/null 2>&1; then
+  if docker compose exec -T server npx prisma db seed </dev/null >/dev/null 2>&1; then
     info "Admin '$user' recreated."
   else
     warn "Seeding failed. Check 'docker compose logs server'."
