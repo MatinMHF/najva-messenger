@@ -20,10 +20,12 @@ die()  { printf '\033[31m  x %s\033[0m\n' "$*" >&2; exit 1; }
 
 # ------------------------------------------------------- existing installation
 
-# A finished install leaves the checkout and its generated .env behind. Re-running
-# the installer over that would overwrite every secret and reset the admin
-# account, so stop here and offer an update instead.
-if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/.env" ]; then
+# A finished install leaves the checkout, its generated .env and the `najva`
+# command behind. Re-running the installer over that would overwrite every
+# secret and reset the admin account, so stop here and offer an update instead.
+# The `najva` command is installed last, so its absence means a previous run
+# failed partway — fall through and install again in that case.
+if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/.env" ] && [ -x /usr/local/bin/najva ]; then
   cd "$INSTALL_DIR"
   . "$INSTALL_DIR/scripts/najva-lib.sh"
 
