@@ -32,7 +32,7 @@ function sha256(bin: Uint8Array): Uint8Array {
   const blocks = new Uint8Array(numBlocks * 64);
   blocks.set(bin, 0);
   blocks[l] = 0x80;
-  const view = new DataView(blocks.buffer);
+  const view = new DataView(blocks.buffer as ArrayBuffer);
   view.setUint32(blocks.length - 4, bitLen, false);
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
@@ -65,7 +65,7 @@ function sha256(bin: Uint8Array): Uint8Array {
   }
 
   const out = new Uint8Array(32);
-  const outView = new DataView(out.buffer);
+  const outView = new DataView(out.buffer as ArrayBuffer);
   outView.setInt32(0, h0, false); outView.setInt32(4, h1, false);
   outView.setInt32(8, h2, false); outView.setInt32(12, h3, false);
   outView.setInt32(16, h4, false); outView.setInt32(20, h5, false);
@@ -100,7 +100,7 @@ function pbkdf2Sha256(password: Uint8Array, salt: Uint8Array, iterations: number
   for (let block = 1; block <= blockCount; block++) {
     const saltBlock = new Uint8Array(salt.length + 4);
     saltBlock.set(salt, 0);
-    const dv = new DataView(saltBlock.buffer);
+    const dv = new DataView(saltBlock.buffer as ArrayBuffer);
     dv.setUint32(salt.length, block, false);
 
     let u = hmacSha256(password, saltBlock);
