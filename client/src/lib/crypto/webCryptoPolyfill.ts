@@ -14,7 +14,9 @@
  * When loaded over HTTPS or localhost, native WebCrypto is preserved.
  */
 
-function sha256(bin: Uint8Array): Uint8Array {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function sha256(bin: Uint8Array): any {
   const K = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -29,10 +31,10 @@ function sha256(bin: Uint8Array): Uint8Array {
   const l = bin.length;
   const bitLen = l * 8;
   const numBlocks = (l + 9 + 63) >> 6;
-  const blocks = new Uint8Array(numBlocks * 64);
+  const blocks: any = new Uint8Array(numBlocks * 64);
   blocks.set(bin, 0);
   blocks[l] = 0x80;
-  const view = new DataView(blocks.buffer.slice(blocks.byteOffset, blocks.byteOffset + blocks.byteLength));
+  const view = new DataView(blocks.buffer);
   view.setUint32(blocks.length - 4, bitLen, false);
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
@@ -64,8 +66,8 @@ function sha256(bin: Uint8Array): Uint8Array {
     h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
   }
 
-  const out = new Uint8Array(32);
-  const outView = new DataView(out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength));
+  const out: any = new Uint8Array(32);
+  const outView = new DataView(out.buffer);
   outView.setInt32(0, h0, false); outView.setInt32(4, h1, false);
   outView.setInt32(8, h2, false); outView.setInt32(12, h3, false);
   outView.setInt32(16, h4, false); outView.setInt32(20, h5, false);
@@ -73,7 +75,7 @@ function sha256(bin: Uint8Array): Uint8Array {
   return out;
 }
 
-function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
+function hmacSha256(key: Uint8Array, data: Uint8Array): any {
   let k = key;
   if (k.length > 64) k = sha256(k);
   const ipad = new Uint8Array(64);
@@ -94,13 +96,13 @@ function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
   return sha256(outer);
 }
 
-function pbkdf2Sha256(password: Uint8Array, salt: Uint8Array, iterations: number, keyLen: number): Uint8Array {
-  const dk = new Uint8Array(keyLen);
+function pbkdf2Sha256(password: Uint8Array, salt: Uint8Array, iterations: number, keyLen: number): any {
+  const dk: any = new Uint8Array(keyLen);
   const blockCount = Math.ceil(keyLen / 32);
   for (let block = 1; block <= blockCount; block++) {
-    const saltBlock = new Uint8Array(salt.length + 4);
+    const saltBlock: any = new Uint8Array(salt.length + 4);
     saltBlock.set(salt, 0);
-    const dv = new DataView(saltBlock.buffer.slice(saltBlock.byteOffset, saltBlock.byteOffset + saltBlock.byteLength));
+    const dv = new DataView(saltBlock.buffer);
     dv.setUint32(salt.length, block, false);
 
     let u = hmacSha256(password, saltBlock);
@@ -118,10 +120,10 @@ function pbkdf2Sha256(password: Uint8Array, salt: Uint8Array, iterations: number
   return dk;
 }
 
-function hkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, len: number): Uint8Array {
+function hkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, len: number): any {
   const s = salt.length > 0 ? salt : new Uint8Array(32);
   const prk = hmacSha256(s, ikm);
-  const t = new Uint8Array(len);
+  const t: any = new Uint8Array(len);
   let last = new Uint8Array(0);
   let offset = 0;
   let step = 1;
@@ -139,7 +141,7 @@ function hkdfSha256(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, len: nu
   return t;
 }
 
-function aes256EncryptBlock(key: Uint8Array, block: Uint8Array): Uint8Array {
+function aes256EncryptBlock(key: Uint8Array, block: Uint8Array): any {
   const S = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -224,7 +226,7 @@ function aes256EncryptBlock(key: Uint8Array, block: Uint8Array): Uint8Array {
   return state;
 }
 
-function aes256CtrTransform(key: Uint8Array, iv12: Uint8Array, input: Uint8Array): Uint8Array {
+function aes256CtrTransform(key: Uint8Array, iv12: Uint8Array, input: Uint8Array): any {
   const output = new Uint8Array(input.length);
   const counterBlock = new Uint8Array(16);
   counterBlock.set(iv12, 0);
