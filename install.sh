@@ -18,13 +18,8 @@ die()  { printf '\033[31m  x %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "Run as root (sudo bash install.sh)."
 
-# ------------------------------------------------------- existing installation
+# -------------------------------------------------------- existing installation
 
-# A finished install leaves the checkout, its generated .env and the `najva`
-# command behind. Re-running the installer over that would overwrite every
-# secret and reset the admin account, so stop here and offer an update instead.
-# The `najva` command is installed last, so its absence means a previous run
-# failed partway — fall through and install again in that case.
 if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/.env" ] && [ -x /usr/local/bin/najva ]; then
   cd "$INSTALL_DIR"
   . "$INSTALL_DIR/scripts/najva-lib.sh"
@@ -52,7 +47,7 @@ if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/.env" ] && [ -x /usr/local/b
   exit 0
 fi
 
-# ---------------------------------------------------------------- dependencies
+# ----------------------------------------------------------------- dependencies
 
 bold "==> Installing dependencies"
 export DEBIAN_FRONTEND=noninteractive
@@ -66,7 +61,7 @@ fi
 docker compose version >/dev/null 2>&1 || die "Docker Compose plugin missing."
 info "Docker $(docker --version | awk '{print $3}' | tr -d ,)"
 
-# ---------------------------------------------------------------- source
+# ---------------------------------------------------------------------- source
 
 bold "==> Fetching Najva"
 if [ -d "$INSTALL_DIR/.git" ]; then
@@ -81,13 +76,10 @@ cd "$INSTALL_DIR"
 # Shared config/cert helpers, also used by the `najva` management menu.
 . "$INSTALL_DIR/scripts/najva-lib.sh"
 
-# ---------------------------------------------------------------- questions
+# ------------------------------------------------------------------- questions
 
 bold "==> Configuration"
 
-# A run that failed partway still left its .env behind. Those secrets already
-# encrypt whatever is in the database and the admin account was created from
-# them, so reuse the answers rather than asking again and regenerating them.
 if [ -f .env ] && grep -q '^ADMIN_USERNAME=' .env && grep -q '^NAJVA_HTTP_PORT=' .env; then
   load_env
   ADMIN_USERNAME="$(grep '^ADMIN_USERNAME=' .env | cut -d= -f2-)"
@@ -96,51 +88,46 @@ if [ -f .env ] && grep -q '^ADMIN_USERNAME=' .env && grep -q '^NAJVA_HTTP_PORT='
   info "Admin '$ADMIN_USERNAME', ports $HTTP_PORT/$HTTPS_PORT, domain ${DOMAIN:-<none>}"
   info "Run 'najva' to change any of them."
 else
-# The questions and the .env heredoc below are deliberately left unindented:
-# the heredoc body is written to .env verbatim.
+  read -rp "  HTTP port  [80]: " HTTP_PORT </dev/tty
+  HTTP_PORT="${HTTP_PORT:-80}"
+  read -rp "  HTTPS port [443]: " HTTPS_PORT </dev/tty
+  HTTPS_PORT="${HTTPS_PORT:-443}"
 
-read -rp "  HTTP port  [80]: " HTTP_PORT </dev/tty
-HTTP_PORT="${HTTP_PORT:-80}"
-read -rp "  HTTPS port [443]: " HTTPS_PORT </dev/tty
-HTTPS_PORT="${HTTPS_PORT:-443}"
+  while :; do
+    read -rp "  Admin username [admin]: " ADMIN_USERNAME </dev/tty
+    ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+    read -rsp "  Admin password (min 8 chars): " ADMIN_PASSWORD </dev/tty; echo
+    read -rsp "  Confirm password: " ADMIN_PASSWORD2 </dev/tty; echo
+    [ "$ADMIN_PASSWORD" = "$ADMIN_PASSWORD2" ] || { warn "Passwords do not match."; continue; }
+    [ "${#ADMIN_PASSWORD}" -ge 8 ] || { warn "Password too short."; continue; }
+    break
+  done
 
-while :; do
-  read -rp "  Admin username [admin]: " ADMIN_USERNAME </dev/tty
-  ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-  read -rsp "  Admin password (min 8 chars): " ADMIN_PASSWORD </dev/tty; echo
-  read -rsp "  Confirm password: " ADMIN_PASSWORD2 </dev/tty; echo
-  [ "$ADMIN_PASSWORD" = "$ADMIN_PASSWORD2" ] || { warn "Passwords do not match."; continue; }
-  [ "${#ADMIN_PASSWORD}" -ge 8 ] || { warn "Password too short."; continue; }
-  break
-done
+  echo
+  info "Enter your domain, or leave blank if you don't have one."
+  read -rp "  What is your domain? []: " DOMAIN </dev/tty
+  DOMAIN="${DOMAIN:-}"
 
-echo
-info "Enter your domain, or leave blank if you don't have one."
-read -rp "  What is your domain? []: " DOMAIN </dev/tty
-DOMAIN="${DOMAIN:-}"
+  if [ -n "$DOMAIN" ]; then
+    read -rp "  Email for Let's Encrypt notices [admin@$DOMAIN]: " LE_EMAIL </dev/tty
+    LE_EMAIL="${LE_EMAIL:-admin@$DOMAIN}"
+  else
+    LE_EMAIL=""
+  fi
 
-if [ -n "$DOMAIN" ]; then
-  read -rp "  Email for Let's Encrypt notices [admin@$DOMAIN]: " LE_EMAIL </dev/tty
-  LE_EMAIL="${LE_EMAIL:-admin@$DOMAIN}"
-else
-  LE_EMAIL=""
-fi
+  PUBLIC_IP="$(curl -fsS4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
+  HOSTNAME_="${DOMAIN:-$PUBLIC_IP}"
 
-PUBLIC_IP="$(curl -fsS4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
-HOSTNAME_="${DOMAIN:-$PUBLIC_IP}"
+  bold "==> Writing configuration"
+  rand() { openssl rand -hex 32; }
 
-# ---------------------------------------------------------------- environment
+  if [ -f .env ]; then
+    cp .env ".env.bak.$(date +%s)"
+    info "Existing .env backed up"
+  fi
 
-bold "==> Writing configuration"
-rand() { openssl rand -hex 32; }
-
-if [ -f .env ]; then
-  cp .env ".env.bak.$(date +%s)"
-  info "Existing .env backed up"
-fi
-
-DB_PASSWORD="$(rand)"
-cat > .env <<EOF
+  DB_PASSWORD="$(rand)"
+  cat > .env <<EOF
 # Generated by install.sh on $(date -Iseconds). Secrets are random per install.
 NODE_ENV=production
 PORT=3000
@@ -179,7 +166,7 @@ VAPID_SUBJECT=mailto:${LE_EMAIL:-admin@$HOSTNAME_}
 ADMIN_USERNAME=$ADMIN_USERNAME
 ADMIN_PASSWORD=$ADMIN_PASSWORD
 EOF
-chmod 600 .env
+  chmod 600 .env
 fi
 
 write_static_config
@@ -193,7 +180,6 @@ if [ -n "$DOMAIN" ]; then
   if issue_certificate; then
     TLS=yes
     info "Certificate installed."
-    # Renewal reloads nginx in place; certbot's own timer handles the schedule.
     mkdir -p /etc/letsencrypt/renewal-hooks/deploy
     printf '#!/bin/sh\ncd %s && docker compose exec -T nginx nginx -s reload\n' "$INSTALL_DIR" \
       > /etc/letsencrypt/renewal-hooks/deploy/najva.sh
@@ -209,23 +195,18 @@ fi
 write_nginx_conf "$TLS"
 if [ "$TLS" = "yes" ]; then apply_urls https "$HTTPS_PORT"; else apply_urls http "$HTTP_PORT"; fi
 
-# ---------------------------------------------------------------- launch
+# ---------------------------------------------------------------------- launch
 
 bold "==> Building and starting (this takes a few minutes)"
 docker compose build >/dev/null
 docker compose up -d
 
 info "Waiting for the API to come up..."
-# Every `docker compose exec` below reads from /dev/null. Under `curl | bash` the
-# script itself arrives on stdin, and exec would otherwise consume the rest of it
-# and end the install silently right here.
 for _ in $(seq 1 60); do
   docker compose exec -T server node -e 'process.exit(0)' </dev/null >/dev/null 2>&1 && break
   sleep 2
 done
 
-# web-push lives in the server image, so the keypair is generated there rather
-# than shipping yet another host dependency.
 if ! grep -q '^VAPID_PUBLIC_KEY=' .env; then
   bold "==> Generating push notification keys"
   KEYS="$(docker compose exec -T server node -e \
@@ -240,9 +221,6 @@ if ! grep -q '^VAPID_PUBLIC_KEY=' .env; then
 fi
 
 bold "==> Creating the admin account"
-# `npx prisma db seed` needs a prisma.seed key in package.json, which this
-# project does not use — the seed is a plain npm script. Keep the failure
-# output: a silent seed failure leaves an install with no way to log in.
 if SEED_OUT="$(docker compose exec -T server npm run seed </dev/null 2>&1)"; then
   info "Admin '$ADMIN_USERNAME' created."
 else
@@ -253,8 +231,11 @@ fi
 install -m 755 scripts/najva.sh /usr/local/bin/najva
 printf 'INSTALL_DIR=%s\n' "$INSTALL_DIR" > /etc/najva.conf
 
+APP_URL="$(grep '^CORS_ORIGIN=' .env | cut -d= -f2)"
+
 echo
 bold "Najva is up."
-info "URL:      $(grep '^CORS_ORIGIN=' .env | cut -d= -f2)"
-info "Admin:    $ADMIN_USERNAME"
-info "Manage:   run 'najva'"
+info "URL:         $APP_URL"
+info "Admin Panel: $APP_URL/admin"
+info "Admin User:  $ADMIN_USERNAME"
+info "Manage:      run 'najva'"

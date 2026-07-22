@@ -18,7 +18,7 @@ $RAW = 'https://raw.githubusercontent.com/MatinMHF/najva-messenger/main'
 
 function Write-Step  { param([string]$m) Write-Host "`n[>>] $m" -ForegroundColor Cyan }
 function Write-OK    { param([string]$m) Write-Host "[OK] $m" -ForegroundColor Green }
-function Write-Warn  { param([string]$m) Write-Host "[!!] $m" -ForegroundColor Yellow }
+function Write-Warn  { param([string]$m) Write-Host "[!] $m" -ForegroundColor Yellow }
 function Write-Fatal { param([string]$m) Write-Host "[XX] $m" -ForegroundColor Red; exit 1 }
 
 Write-Host @"
@@ -28,7 +28,7 @@ Write-Host @"
  |  \| | __ _  ___   ____ _
  | . ` |/ _` |/ \ \ / / _` |
  | |\  | (_| | | \ V / (_| |
- \_| \_/\__,_| |  \_/ \__,_|
+ |_| \_|\__,_|_|  \_/ \__,_|
             _/ |
            |__/
 
@@ -55,9 +55,6 @@ if (-not $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 
 $InstallDir = if ($env:NAJVA_DIR) { $env:NAJVA_DIR } else { "$env:USERPROFILE\najva" }
 
-# Files fetched from GitHub, for both a fresh install and an update. VERSION is
-# among them so an install records what it is, and a later run has something to
-# compare against.
 $files = @{
     'docker-compose.yml'   = 'docker-compose.yml'
     '.env.example'         = '.env.example'
@@ -68,22 +65,16 @@ $files = @{
 
 function Get-InstalledVersion {
     $f = Join-Path $InstallDir 'VERSION'
-    # Installs made before VERSION existed have no file, and must sort below
-    # every real release so an update is still offered.
     if (Test-Path $f) { return (Get-Content $f -Raw).Trim() } else { return '0.0.0' }
 }
 
 function Get-LatestVersion {
-    # Returns $null when offline, so the caller can tell "already up to date"
-    # apart from "could not check".
     try { return (Invoke-WebRequest "$RAW/VERSION" -UseBasicParsing).Content.Trim() }
     catch { return $null }
 }
 
 function Test-VersionGreater {
     param([string]$New, [string]$Old)
-    # [version] compares numerically, so 1.10.0 really is newer than 1.9.0 —
-    # a plain string compare gets that backwards.
     try { return ([version]$New) -gt ([version]$Old) }
     catch { return $New -ne $Old }
 }
@@ -113,9 +104,6 @@ function Set-EnvValue {
     $found = $false
     foreach ($line in (Get-Content $Path)) {
         if ($line -match "^\s*$([regex]::Escape($Key))=") {
-            # .env.example already carries empty VAPID_* lines, so appending
-            # would leave two entries for one key and dotenv would take the
-            # empty one.
             $out.Add("$Key=$Value"); $found = $true
         } else {
             $out.Add($line)
@@ -125,10 +113,6 @@ function Set-EnvValue {
     [System.IO.File]::WriteAllLines($Path, $out, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-# Rewrites whole KEY=... lines instead of searching for placeholder text. The
-# previous version replaced literal strings that no longer appear in
-# .env.example, so every replacement silently did nothing and each install kept
-# the example's published secrets. Matching on the key cannot fail that way.
 function Write-EnvFile {
     param([string]$Template, [string]$Path, [hashtable]$Values)
     $out  = New-Object System.Collections.Generic.List[string]
@@ -143,21 +127,12 @@ function Write-EnvFile {
             $out.Add($line)
         }
     }
-    # Keys the template does not carry at all — SERVER_SECRET is absent from
-    # .env.example — still have to be written, or the server falls back to the
-    # hardcoded default in server/src/config/index.ts.
     foreach ($key in $Values.Keys) {
         if (-not $seen.ContainsKey($key)) { $out.Add("$key=$($Values[$key])") }
     }
-    # WriteAllLines rather than Set-Content: Windows PowerShell writes a BOM for
-    # -Encoding UTF8, and a BOM ahead of the first line breaks dotenv parsing.
     [System.IO.File]::WriteAllLines($Path, $out, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-# coturn validates the time-limited credentials the API server mints, so its
-# static-auth-secret must equal TURN_SECRET in .env or every relayed call fails
-# to authenticate. turnserver.conf is re-downloaded on install and on update,
-# which reverts it to the checked-in default, so this runs after both.
 function Set-TurnConfig {
     param([string]$Secret)
     $conf = Join-Path $InstallDir 'turn\turnserver.conf'
@@ -165,8 +140,6 @@ function Set-TurnConfig {
     $lines = Get-Content $conf
     $lines = $lines -replace '^static-auth-secret=.*', "static-auth-secret=$Secret"
     $lines = $lines -replace '^realm=.*', 'realm=localhost'
-    # The checked-in file pins a WSL2 development address. Left in place it
-    # advertises relay candidates on an IP this machine does not own.
     $lines = $lines -replace '^external-ip=.*', '# external-ip unset by the installer (checked-in value was a dev address)'
     [System.IO.File]::WriteAllLines($conf, $lines, (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "    Stamped TURN secret into turn\turnserver.conf"
@@ -176,22 +149,16 @@ function Update-Najva {
     param([string]$To)
     Write-Step "Updating Najva to $To..."
     Set-Location $InstallDir
-    # .env is deliberately not in $files: the generated secrets and the admin
-    # credentials have to survive the update untouched.
     Get-ConfigFiles
-    # The freshly downloaded turnserver.conf carries the repository default
-    # again, so the running install's secret has to be stamped back in.
     Set-TurnConfig -Secret (Get-EnvValue 'TURN_SECRET')
     docker compose pull
     docker compose up -d
     if ($LASTEXITCODE -ne 0) { Write-Fatal "docker compose failed. See output above." }
     Write-OK "Updated to $To."
     Write-OK "Open: http://localhost"
+    Write-OK "Admin Panel: http://localhost/admin"
 }
 
-# A finished install leaves .env and the compose file behind. Re-running the
-# installer over that would pull fresh config down on top of a live deployment,
-# so stop here and offer an update instead.
 if ((Test-Path (Join-Path $InstallDir '.env')) -and
     (Test-Path (Join-Path $InstallDir 'docker-compose.yml'))) {
 
@@ -280,8 +247,6 @@ if (Test-Path '.env') {
     $adminUser = Read-Host "  Admin username [admin]"
     if ([string]::IsNullOrWhiteSpace($adminUser)) { $adminUser = 'admin' }
 
-    # Asked for rather than defaulted: .env.example ships a published admin
-    # password, and the previous installer left it in place on every install.
     while ($true) {
         $secure1 = Read-Host "  Admin password (min 8 chars)" -AsSecureString
         $secure2 = Read-Host "  Confirm password" -AsSecureString
@@ -312,8 +277,6 @@ if (Test-Path '.env') {
     Write-Warn "Back up $InstallDir\.env — losing it means losing access to encrypted data."
 }
 
-# Runs whether .env was just written or already existed, so an install made by
-# the older script gets its coturn secret lined up on the next run.
 Set-TurnConfig -Secret (Get-EnvValue 'TURN_SECRET')
 
 # ---- Step 5: Pull & Start ---------------------------------------------------
@@ -331,9 +294,6 @@ do {
 } while ($waited -lt 60 -and -not ($ps -match 'healthy'))
 
 # ---- Step 7: Push notification keys -----------------------------------------
-# web-push lives in the server image, so the keypair is generated there rather
-# than adding another host dependency. Without this the VAPID_* keys stay empty
-# and the server disables Web Push.
 if ([string]::IsNullOrWhiteSpace((Get-EnvValue 'VAPID_PUBLIC_KEY'))) {
     Write-Step "Generating push notification keys..."
     $keys = docker compose exec -T server node -e "const k=require('web-push').generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)" 2>$null
@@ -349,9 +309,6 @@ if ([string]::IsNullOrWhiteSpace((Get-EnvValue 'VAPID_PUBLIC_KEY'))) {
 }
 
 # ---- Step 8: Admin account --------------------------------------------------
-# Nothing in docker-compose.yml seeds the database, so without this the admin
-# credentials written to .env never produce an account and there is no way to
-# sign in as an administrator.
 Write-Step "Creating the admin account..."
 docker compose exec -T server npx prisma db seed 2>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) {
@@ -363,12 +320,13 @@ if ($LASTEXITCODE -eq 0) {
 
 # ---- Done -------------------------------------------------------------------
 Write-Host ""
-Write-OK "====================================="
+Write-OK "======================================"
 Write-OK "  Najva is running!"
 Write-OK "  Version: $(Get-InstalledVersion)"
-Write-OK "  Open: http://localhost"
+Write-OK "  App URL: http://localhost"
+Write-OK "  Admin Panel: http://localhost/admin"
 Write-OK "  Install dir: $InstallDir"
-Write-OK "====================================="
+Write-OK "======================================"
 Write-Host ""
 
 try { Start-Process 'http://localhost' } catch {}
