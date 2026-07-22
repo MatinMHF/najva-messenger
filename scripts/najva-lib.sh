@@ -2,48 +2,95 @@
 # Shared helpers for install.sh and the `najva` management menu.
 # Expects DOMAIN, HOSTNAME_, LE_EMAIL, HTTP_PORT, HTTPS_PORT and cwd = install dir.
 
-bold() { printf '[1m%s[0m
-' "$*"; }
-info() { printf '  %s
-' "$*"; }
-warn() { printf '[33m  ! %s[0m
-' "$*"; }
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+info() { printf '  %s\n' "$*"; }
+warn() { printf '\033[33m  ! %s\033[0m\n' "$*"; }
 
-# The public URL depends on whether TLS ends up working, so it is stamped in
-# later by apply_urls() rather than guessed here.
 apply_urls() {
   local scheme="$1" port="$2" url
   url="$scheme://$HOSTNAME_"
-  if { [ "$scheme" = "http" ] && [ "$port" != "80" ]; } ||
+  if { [ "$scheme" = "http" ] && [ "$port" != "80" ]; } || \
      { [ "$scheme" = "https" ] && [ "$port" != "443" ]; }; then
     url="$url:$port"
   fi
-  sed -i "s#__PUBLIC_URL__#$url#g; s#^CORS_ORIGIN=.*#CORS_ORIGIN=$url#; \
-           s#^WEBAUTHN_ORIGIN=.*#WEBAUTHN_ORIGIN=$url#; \
-           s#^MEDIA_SERVER_PUBLIC_URL=.*#MEDIA_SERVER_PUBLIC_URL=$url#" .env
+  sed -i "s#^CORS_ORIGIN=.*#CORS_ORIGIN=$url#; \
+          s#^WEBAUTHN_ORIGIN=.*#WEBAUTHN_ORIGIN=$url#; \
+          s#^MEDIA_SERVER_PUBLIC_URL=.*#MEDIA_SERVER_PUBLIC_URL=$url#" .env
   info "Public URL: $url"
 }
 
-# Stamps the install-time answers into the files Docker mounts: coturn shares
-# TURN_SECRET with the API server, and the override carries the host ports.
+generate_self_signed_cert() {
+  local target_ip target_host
+  target_ip="${PUBLIC_IP:-$(curl -fsS4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')}"
+  target_host="${DOMAIN:-$target_ip}"
+
+  mkdir -p certs
+
+  if [ ! -f certs/najva-ca.key ] || [ ! -f certs/najva-ca.crt ]; then
+    bold "==> Generating Najva Root CA certificate"
+    openssl req -x509 -new -nodes \
+      -keyout certs/najva-ca.key \
+      -out certs/najva-ca.crt \
+      -days 3650 \
+      -subj "/CN=Najva Root CA ($target_host)/O=Najva Messenger/OU=Security" >/dev/null 2>&1
+  fi
+
+  cat > certs/server_ext.cnf <<EOF
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = $target_host
+O = Najva Messenger
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = $target_host
+IP.1 = 127.0.0.1
+IP.2 = $target_ip
+EOF
+
+  openssl req -new -nodes \
+    -keyout certs/najva-server.key \
+    -out certs/najva-server.csr \
+    -config certs/server_ext.cnf >/dev/null 2>&1
+
+  openssl x509 -req \
+    -in certs/najva-server.csr \
+    -CA certs/najva-ca.crt \
+    -CAkey certs/najva-ca.key \
+    -CAcreateserial \
+    -out certs/najva-server.crt \
+    -days 3650 \
+    -extfile certs/server_ext.cnf \
+    -extensions v3_req >/dev/null 2>&1
+
+  chmod 644 certs/najva-ca.crt certs/najva-server.crt
+  chmod 600 certs/najva-ca.key certs/najva-server.key
+  info "Self-signed certificate generated for $target_ip"
+}
+
 write_static_config() {
-  # coturn shares TURN_SECRET with the API server and needs the real realm.
-  TURN_SECRET_VALUE="$(grep '^TURN_SECRET=' .env | cut -d= -f2)"
+  mkdir -p certs
+  TURN_SECRET_VALUE="$(grep '^TURN_SECRET=' .env | cut -d= -f2-)"
   sed -i "s#^realm=.*#realm=$HOSTNAME_#; s#^static-auth-secret=.*#static-auth-secret=$TURN_SECRET_VALUE#" \
     turn/turnserver.conf
 
-  # coturn puts external-ip into relay candidates, so it has to be the address
-  # peers actually reach — on a 1:1-NAT cloud host that is not the interface
-  # address. Strip any existing line first: this runs again after every update,
-  # and the file is a tracked one that a fast-forward restores to its default.
   PUBLIC_IP="${PUBLIC_IP:-$(curl -fsS4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')}"
   sed -i '/^external-ip=/d' turn/turnserver.conf
   if [ -n "$PUBLIC_IP" ]; then
     printf 'external-ip=%s\n' "$PUBLIC_IP" >> turn/turnserver.conf
     info "TURN external address: $PUBLIC_IP"
   else
-    warn "Could not determine the public IP; leaving external-ip unset."
-    warn "Relayed calls may fail if this host is behind NAT."
+    warn "Could not determine public IP; leaving external-ip unset."
   fi
 
   cat > docker-compose.override.yml <<EOF
@@ -55,18 +102,27 @@ services:
       - "$HTTPS_PORT:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
 EOF
 }
 
-# ---------------------------------------------------------------- nginx
-
-# Regenerates nginx.conf for the current certificate state. Called again by the
-# `najva` menu after a retried certificate issuance, so it must stay idempotent.
 write_nginx_conf() {
-  local tls="$1" cert_dir="/etc/letsencrypt/live/$DOMAIN"
+  local tls="$1" cert_dir=""
+  if [ "$tls" = "letsencrypt" ]; then
+    cert_dir="/etc/letsencrypt/live/$DOMAIN"
+  elif [ "$tls" = "selfsigned" ]; then
+    cert_dir="/etc/nginx/certs"
+  fi
+
   local locations
   locations=$(cat <<'LOC'
+        location /ca.crt {
+            alias /etc/nginx/certs/najva-ca.crt;
+            default_type application/x-x509-ca-cert;
+            add_header Content-Disposition 'attachment; filename="najva-ca.crt"';
+        }
+
         location /api/files/ {
             limit_req zone=files_limit burst=200 nodelay;
             proxy_pass http://server:3000;
@@ -168,7 +224,7 @@ http {
     add_header X-XSS-Protection "1; mode=block";
 HEAD
 
-    if [ "$tls" = "yes" ]; then
+    if [ "$tls" = "letsencrypt" ]; then
       cat <<HTTPS
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
@@ -176,6 +232,11 @@ HEAD
         listen 80;
         server_name $DOMAIN;
         location /.well-known/acme-challenge/ { root /var/www/certbot; }
+        location /ca.crt {
+            alias /etc/nginx/certs/najva-ca.crt;
+            default_type application/x-x509-ca-cert;
+            add_header Content-Disposition 'attachment; filename="najva-ca.crt"';
+        }
         location / { return 301 https://\$host\$request_uri; }
     }
 
@@ -195,6 +256,35 @@ $locations
     }
 }
 HTTPS
+    elif [ "$tls" = "selfsigned" ]; then
+      cat <<SELFSIGNED
+    server {
+        listen 80;
+        server_name _;
+        location /ca.crt {
+            alias /etc/nginx/certs/najva-ca.crt;
+            default_type application/x-x509-ca-cert;
+            add_header Content-Disposition 'attachment; filename="najva-ca.crt"';
+        }
+        location / { return 301 https://\$host\$request_uri; }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name _;
+
+        ssl_certificate     /etc/nginx/certs/najva-server.crt;
+        ssl_certificate_key /etc/nginx/certs/najva-server.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+
+$locations
+    }
+}
+SELFSIGNED
     else
       cat <<PLAIN
 
@@ -210,10 +300,6 @@ PLAIN
   } > nginx/nginx.conf
 }
 
-# ---------------------------------------------------------------- certificate
-
-# Issues a certificate with certbot standalone on port 80. Port 80 must be free,
-# so anything already bound there (including our own nginx) is stopped first.
 issue_certificate() {
   [ -n "$DOMAIN" ] || return 1
   docker compose stop nginx >/dev/null 2>&1 || true
@@ -221,28 +307,24 @@ issue_certificate() {
     --email "$LE_EMAIL" -d "$DOMAIN" --keep-until-expiring
 }
 
-# ---------------------------------------------------------------- environment
-
-# The answers given at install time live in .env; re-read them before every
-# action so the menu keeps working after a domain or port change. Expects
-# cwd = install dir.
 load_env() {
   DOMAIN="$(grep '^NAJVA_DOMAIN=' .env | cut -d= -f2-)"
   HTTP_PORT="$(grep '^NAJVA_HTTP_PORT=' .env | cut -d= -f2-)"
   HTTPS_PORT="$(grep '^NAJVA_HTTPS_PORT=' .env | cut -d= -f2-)"
   LE_EMAIL="$(grep '^VAPID_SUBJECT=' .env | cut -d: -f2-)"
-  HOSTNAME_="${DOMAIN:-$(hostname -I | awk '{print $1}')}"
-  [ -n "$DOMAIN" ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ] && TLS=yes || TLS=no
+  PUBLIC_IP="$(grep '^MEDIASOUP_ANNOUNCED_IP=' .env | cut -d= -f2-)"
+  HOSTNAME_="${DOMAIN:-$PUBLIC_IP}"
+  if [ -n "$DOMAIN" ] && [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+    TLS=letsencrypt
+  elif [ -f "certs/najva-server.crt" ]; then
+    TLS=selfsigned
+  else
+    TLS=no
+  fi
 }
 
-# ---------------------------------------------------------------- versioning
-
-# Branch the install tracks. Overridable so a fork or a test install can follow
-# something other than main.
 NAJVA_BRANCH="${NAJVA_BRANCH:-main}"
 
-# Version of the checkout in $1 (default: cwd). Installs made before VERSION
-# existed have no file, and must sort below every real release.
 installed_version() {
   local dir="${1:-.}"
   if [ -r "$dir/VERSION" ]; then
@@ -252,9 +334,6 @@ installed_version() {
   fi
 }
 
-# Version on the tracked branch. Needs the network: returns non-zero and prints
-# nothing when the fetch fails, so callers can tell "no update available" apart
-# from "could not check".
 latest_version() {
   local dir="${1:-.}"
   command -v git >/dev/null || return 1
@@ -262,14 +341,10 @@ latest_version() {
   git -C "$dir" show "origin/$NAJVA_BRANCH:VERSION" 2>/dev/null | tr -d ' \t\r\n'
 }
 
-# True when $1 is strictly newer than $2. sort -V understands 1.10.0 > 1.9.0,
-# which a plain string compare gets wrong.
 version_gt() {
   [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]
 }
 
-# Fast-forwards the checkout to the tracked branch and restarts the stack.
-# Expects cwd = install dir. Returns non-zero if the update could not be applied.
 perform_update() {
   local from to
   from="$(installed_version)"
@@ -281,22 +356,19 @@ perform_update() {
     || { warn "Could not apply the update. Check 'git -C $PWD status'."; return 1; }
   to="$(installed_version)"
 
-  # .env is gitignored so the secrets survive the reset, but nginx.conf and
-  # turnserver.conf are tracked — the reset just threw away the install-time
-  # answers stamped into them, so put them back before anything restarts.
   load_env
   write_static_config
   write_nginx_conf "$TLS"
-  if [ "$TLS" = yes ]; then apply_urls https "$HTTPS_PORT"; else apply_urls http "$HTTP_PORT"; fi
+  if [ "$TLS" = "letsencrypt" ] || [ "$TLS" = "selfsigned" ]; then
+    apply_urls https "$HTTPS_PORT"
+  else
+    apply_urls http "$HTTP_PORT"
+  fi
 
   info "Rebuilding containers (this takes a few minutes)..."
   docker compose build >/dev/null
   docker compose up -d
 
-  # The menu script is copied to /usr/local/bin at install time, so a changed
-  # copy in the repo only takes effect once it is reinstalled.
   install -m 755 scripts/najva.sh /usr/local/bin/najva
-
   info "Updated $from -> $to"
 }
-

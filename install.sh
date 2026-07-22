@@ -5,7 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install.sh | sudo bash
 #
 # Asks for ports, admin credentials and a domain, issues a Let's Encrypt
-# certificate if you have one, then brings the whole stack up under Docker.
+# certificate if you have one, or generates a self-signed Root CA certificate
+# with a public download link so camera/mic/voice/video work out-of-the-box.
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/MatinMHF/najva-messenger.git}"
@@ -173,27 +174,34 @@ write_static_config
 
 TLS=no
 if [ -n "$DOMAIN" ]; then
-  bold "==> Requesting certificate for $DOMAIN"
+  bold "==> Requesting Let's Encrypt certificate for $DOMAIN"
   if [ "$HTTP_PORT" != "80" ]; then
     warn "Let's Encrypt validates over port 80; HTTP port is $HTTP_PORT."
   fi
   if issue_certificate; then
-    TLS=yes
+    TLS=letsencrypt
     info "Certificate installed."
     mkdir -p /etc/letsencrypt/renewal-hooks/deploy
     printf '#!/bin/sh\ncd %s && docker compose exec -T nginx nginx -s reload\n' "$INSTALL_DIR" \
       > /etc/letsencrypt/renewal-hooks/deploy/najva.sh
     chmod +x /etc/letsencrypt/renewal-hooks/deploy/najva.sh
   else
-    warn "Certificate issuance failed. Continuing over plain HTTP."
-    warn "Run 'najva' and pick 'Retry SSL certificate' once DNS/port 80 are ready."
+    warn "Let's Encrypt certificate issuance failed. Falling back to self-signed Root CA certificate."
+    generate_self_signed_cert
+    TLS=selfsigned
   fi
 else
-  info "No domain — serving over plain HTTP on $PUBLIC_IP."
+  info "No domain given — generating self-signed Root CA certificate for IP $PUBLIC_IP."
+  generate_self_signed_cert
+  TLS=selfsigned
 fi
 
 write_nginx_conf "$TLS"
-if [ "$TLS" = "yes" ]; then apply_urls https "$HTTPS_PORT"; else apply_urls http "$HTTP_PORT"; fi
+if [ "$TLS" = "letsencrypt" ] || [ "$TLS" = "selfsigned" ]; then
+  apply_urls https "$HTTPS_PORT"
+else
+  apply_urls http "$HTTP_PORT"
+fi
 
 # ---------------------------------------------------------------------- launch
 
@@ -235,7 +243,11 @@ APP_URL="$(grep '^CORS_ORIGIN=' .env | cut -d= -f2)"
 
 echo
 bold "Najva is up."
-info "URL:         $APP_URL"
-info "Admin Panel: $APP_URL/admin"
-info "Admin User:  $ADMIN_USERNAME"
-info "Manage:      run 'najva'"
+info "App URL:         $APP_URL"
+info "Admin Panel:     $APP_URL/admin"
+info "Admin User:      $ADMIN_USERNAME"
+if [ "$TLS" = "selfsigned" ]; then
+  info "CA Certificate:  http://$HOSTNAME_/ca.crt"
+  info "(Download 'najva-ca.crt' and install it into Trusted Root Authorities for camera/mic access)"
+fi
+info "Manage:          run 'najva'"

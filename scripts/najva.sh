@@ -29,7 +29,7 @@ retry_ssl() {
   bold "==> Requesting certificate for $DOMAIN"
   if issue_certificate; then
     info "Certificate installed."
-    write_nginx_conf yes
+    write_nginx_conf letsencrypt
     apply_urls https "$HTTPS_PORT"
     mkdir -p /etc/letsencrypt/renewal-hooks/deploy
     printf '#!/bin/sh\ncd %s && docker compose exec -T nginx nginx -s reload\n' "$INSTALL_DIR" \
@@ -37,14 +37,35 @@ retry_ssl() {
     chmod +x /etc/letsencrypt/renewal-hooks/deploy/najva.sh
   else
     warn "Issuance failed. Check that DNS points here and port 80 is reachable."
-    write_nginx_conf no
-    apply_urls http "$HTTP_PORT"
+    write_nginx_conf "$TLS"
+    if [ "$TLS" = "letsencrypt" ] || [ "$TLS" = "selfsigned" ]; then
+      apply_urls https "$HTTPS_PORT"
+    else
+      apply_urls http "$HTTP_PORT"
+    fi
   fi
   docker compose up -d
 }
 
-# Password derives the account's encryption key, so it cannot be rotated
-# server-side without the old one. Resetting therefore re-provisions the account.
+issue_self_signed() {
+  load_env
+  generate_self_signed_cert
+  write_static_config
+  write_nginx_conf selfsigned
+  apply_urls https "$HTTPS_PORT"
+  docker compose up -d
+  echo
+  bold "==> Self-signed SSL Certificate & Root CA Issued!"
+  info "App HTTPS URL:    https://$HOSTNAME_"
+  info "Admin Panel:      https://$HOSTNAME_/admin"
+  info "CA Download Link: http://$HOSTNAME_/ca.crt"
+  echo
+  info "To trust this certificate on your client device (Windows/Mac/Android/iOS):"
+  info "  1. Download Root CA: http://$HOSTNAME_/ca.crt"
+  info "  2. Install 'najva-ca.crt' into 'Trusted Root Certification Authorities'."
+  info "  3. Open https://$HOSTNAME_ — camera, mic, voice messages & WebCrypto will work."
+}
+
 reset_admin() {
   load_env
   local user pass pass2 old
@@ -74,12 +95,9 @@ reset_admin() {
   ' </dev/null >/dev/null
 
   sed -i "s#^ADMIN_USERNAME=.*#ADMIN_USERNAME=$user#" .env
-  # The password can contain '#', so build the replacement with a literal file edit.
   grep -v '^ADMIN_PASSWORD=' .env > .env.new && printf 'ADMIN_PASSWORD=%s\n' "$pass" >> .env.new
   mv .env.new .env && chmod 600 .env
 
-  # exec reuses the environment the container started with, so the new
-  # credentials only reach the seed once the container has been recreated.
   docker compose up -d server >/dev/null
 
   if SEED_OUT="$(docker compose exec -T server npm run seed </dev/null 2>&1)"; then
@@ -96,6 +114,9 @@ status() {
   echo
   info "Version: $(installed_version)"
   info "Domain: ${DOMAIN:-<none>}   TLS: $TLS   Ports: $HTTP_PORT/$HTTPS_PORT"
+  if [ "$TLS" = "selfsigned" ]; then
+    info "CA Certificate Download: http://$HOSTNAME_/ca.crt"
+  fi
 }
 
 check_updates() {
@@ -140,30 +161,32 @@ uninstall() {
 
 while :; do
   echo
-  bold "  Najva Messenger"
+  bold "  Najva Messenger Management"
   cat <<'MENU'
-    1) Retry SSL certificate
-    2) Reset admin username and password
-    3) Restart the service
-    4) Stop the service
-    5) Start the service
-    6) Status
-    7) Logs (follow, Ctrl-C to exit)
-    8) Check for updates
-    9) Uninstall
+    1) Retry Let's Encrypt SSL certificate
+    2) Issue self-signed SSL certificate & CA download link
+    3) Reset admin username and password
+    4) Restart the service
+    5) Stop the service
+    6) Start the service
+    7) Status
+    8) Logs (follow, Ctrl-C to exit)
+    9) Check for updates
+   10) Uninstall
     0) Quit
 MENU
   read -rp "  Choice: " choice </dev/tty
   case "$choice" in
     1) retry_ssl; pause ;;
-    2) reset_admin; pause ;;
-    3) docker compose restart; info "Restarted."; pause ;;
-    4) docker compose down; info "Stopped."; pause ;;
-    5) docker compose up -d; info "Started."; pause ;;
-    6) status; pause ;;
-    7) docker compose logs -f --tail 100 || true ;;
-    8) check_updates; pause ;;
-    9) uninstall; pause ;;
+    2) issue_self_signed; pause ;;
+    3) reset_admin; pause ;;
+    4) docker compose restart; info "Restarted."; pause ;;
+    5) docker compose down; info "Stopped."; pause ;;
+    6) docker compose up -d; info "Started."; pause ;;
+    7) status; pause ;;
+    8) docker compose logs -f --tail 100 || true ;;
+    9) check_updates; pause ;;
+    10) uninstall; pause ;;
     0|q) exit 0 ;;
     *) warn "Unknown choice." ;;
   esac
