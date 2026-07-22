@@ -38,8 +38,6 @@ const LoginForm: React.FC = () => {
   const [successKind, setSuccessKind] = useState<'signin' | 'passkey'>('signin');
   const [shaking, setShaking] = useState(false);
 
-  const isWebCryptoAvailable = !!globalThis.crypto?.subtle;
-
   const shakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const navTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => { clearTimeout(shakeTimer.current); clearTimeout(navTimer.current); }, []);
@@ -104,11 +102,6 @@ const LoginForm: React.FC = () => {
     if (busy) return;
     if (!username.trim() || !password) {
       fail(t('auth.fill_fields'));
-      return;
-    }
-
-    if (!isWebCryptoAvailable) {
-      fail('مرورگر شما دسترسی WebCrypto را در اتصال HTTP غیرفعال کرده است. لطفاً از دامنه با HTTPS یا http://localhost استفاده کنید.');
       return;
     }
 
@@ -186,12 +179,6 @@ const LoginForm: React.FC = () => {
         <h1>{t('auth.login_title')}</h1>
         <p>{t('auth.login_subtitle')}</p>
       </div>
-
-      {!isWebCryptoAvailable && (
-        <div className="najva-error" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171', marginBottom: '16px' }}>
-          ⚠️ برای رمزنگاری امن E2EE، مرورگر نیاز به اتصال HTTPS یا localhost دارد. روی HTTP معمولی با IP، رمزنگاری WebCrypto مرورگر غیرفعال است.
-        </div>
-      )}
 
       <form onSubmit={handleLogin} className="najva-form">
         <label className="najva-field">

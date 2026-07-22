@@ -26,9 +26,6 @@ export const deriveFromPassword = async (
   iterations: number,
 ): Promise<PasswordKeys> => {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    throw new Error('WebCrypto API (crypto.subtle) is disabled over plain HTTP IP access. Please access Najva via HTTPS or http://localhost.');
-  }
   const pwKey = await subtle.importKey('raw', utf8(password) as unknown as BufferSource, 'PBKDF2', false, ['deriveBits']);
   const prkBits = await subtle.deriveBits(
     { name: 'PBKDF2', hash: 'SHA-256', salt: kekSalt as unknown as BufferSource, iterations },
@@ -92,9 +89,6 @@ export const deriveRecoveryWrapKey = (code: Uint8Array, wrapSalt: Uint8Array): P
 
 export const recoveryVerifierHash = async (code: Uint8Array): Promise<string> => {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    throw new Error('WebCrypto API (crypto.subtle) is disabled over plain HTTP IP access. Please access Najva via HTTPS or http://localhost.');
-  }
   const prefix = utf8('najva:rc:verify:v1');
   const input = new Uint8Array(prefix.length + code.length);
   input.set(prefix, 0);
