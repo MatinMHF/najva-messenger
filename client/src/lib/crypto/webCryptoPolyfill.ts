@@ -143,7 +143,7 @@ function aes256EncryptBlock(key: Uint8Array, block: Uint8Array): Uint8Array {
   const S = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xccc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
     0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
     0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
     0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
@@ -264,20 +264,20 @@ export function ensureWebCryptoPolyfill(): void {
           const salt = algorithm.salt instanceof Uint8Array ? algorithm.salt : new Uint8Array(algorithm.salt);
           const keyBytes = baseKey._raw;
           const res = pbkdf2Sha256(keyBytes, salt, algorithm.iterations, numBytes);
-          return res.buffer;
+          return res.buffer as any;
         } else if (algorithm.name === 'HKDF') {
           const salt = algorithm.salt instanceof Uint8Array ? algorithm.salt : new Uint8Array(algorithm.salt);
           const info = algorithm.info instanceof Uint8Array ? algorithm.info : new Uint8Array(algorithm.info);
           const keyBytes = baseKey._raw;
           const res = hkdfSha256(keyBytes, salt, info, numBytes);
-          return res.buffer;
+          return res.buffer as any;
         }
         throw new Error('Unsupported deriveBits algorithm: ' + algorithm?.name);
       },
       digest: async (_algorithm: any, data: any) => {
         const raw = data instanceof Uint8Array ? data : new Uint8Array(data);
         const res = sha256(raw);
-        return res.buffer;
+        return res.buffer as any;
       },
       encrypt: async (algorithm: any, key: any, data: any) => {
         const keyBytes = key._raw;
@@ -288,7 +288,7 @@ export function ensureWebCryptoPolyfill(): void {
         const out = new Uint8Array(ct.length + 16);
         out.set(ct, 0);
         out.set(dummyTag, ct.length);
-        return out.buffer;
+        return out.buffer as any;
       },
       decrypt: async (algorithm: any, key: any, data: any) => {
         const keyBytes = key._raw;
@@ -296,7 +296,7 @@ export function ensureWebCryptoPolyfill(): void {
         const iv = algorithm.iv instanceof Uint8Array ? algorithm.iv : new Uint8Array(algorithm.iv);
         const ciphertext = cipherAndTag.subarray(0, cipherAndTag.length - 16);
         const pt = aes256CtrTransform(keyBytes, iv, ciphertext);
-        return pt.buffer;
+        return pt.buffer as any;
       },
     };
   }
