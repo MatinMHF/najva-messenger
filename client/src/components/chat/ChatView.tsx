@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18n';
 import { X } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
@@ -37,9 +37,12 @@ const ChatView: React.FC = () => {
 
   // Selection states
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isMouseDownRef = useRef(false);
   const isDraggingSelection = useRef(false);
   const dragStartIdx = useRef<number>(-1);
+  const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragMode = useRef<boolean>(true); // true = select, false = deselect
+  const longPressTimerRef = useRef<number | null>(null);
   const [locallyDeletedIds, setLocallyDeletedIds] = useState<Set<string>>(new Set());
 
   // Delete Confirmation states
@@ -100,13 +103,25 @@ const ChatView: React.FC = () => {
     };
   }, []);
 
-  // Window mouseup listener for drag release
+  // Global mouseup / touchend listener for drag release and long press cleanup
   useEffect(() => {
-    const handleMouseUp = () => {
+    const handleGlobalRelease = () => {
+      isMouseDownRef.current = false;
       isDraggingSelection.current = false;
+      dragStartIdx.current = -1;
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
     };
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleGlobalRelease);
+    window.addEventListener('touchend', handleGlobalRelease);
+    window.addEventListener('touchcancel', handleGlobalRelease);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalRelease);
+      window.removeEventListener('touchend', handleGlobalRelease);
+      window.removeEventListener('touchcancel', handleGlobalRelease);
+    };
   }, []);
 
   // Cleanup flash timeout
@@ -301,50 +316,112 @@ const ChatView: React.FC = () => {
 
   const visibleMessages = chatMessages.filter(m => !locallyDeletedIds.has(m.id));
 
-  // Drag selection mouse handlers
-  const handleMessageMouseDown = (e: React.MouseEvent, messageId: string, index: number) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    isDraggingSelection.current = true;
-    dragStartIdx.current = index;
-
-    const selected = selectedIds.has(messageId);
-    dragMode.current = !selected;
-
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (dragMode.current) {
-        next.add(messageId);
-      } else {
-        next.delete(messageId);
-      }
-      return next;
-    });
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
-  const handleMessageMouseEnter = (messageId: string, index: number) => {
-    if (!isDraggingSelection.current || dragStartIdx.current === -1) return;
-    const start = Math.min(dragStartIdx.current, index);
-    const end = Math.max(dragStartIdx.current, index);
+  // Selection handlers: Click & Drag or Press & Hold (500ms) ONLY. Single clicks do NOT select!
+  const handleMessageMouseDown = (e: React.MouseEvent, messageId: string, index: number) => {
+    if (e.button !== 0) return;
+    isMouseDownRef.current = true;
+    isDraggingSelection.current = false;
+    dragStartIdx.current = index;
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
 
-    setSelectedIds(prev => {
+    cancelLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      if (isMouseDownRef.current && !isDraggingSelection.current) {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(messageId)) next.delete(messageId);
+          else next.add(messageId);
+          return next;
+        });
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(40);
+        }
+      }
+    }, 500);
+  };
+
+  const handleMessageMouseMove = (e: React.MouseEvent, index: number) => {
+    if (!isMouseDownRef.current || dragStartIdx.current === -1) return;
+    const dist = Math.hypot(e.clientX - dragStartPos.current.x, e.clientY - dragStartPos.current.y);
+    if (dist > 8 || index !== dragStartIdx.current) {
+      cancelLongPress();
+      if (!isDraggingSelection.current) {
+        isDraggingSelection.current = true;
+        const initialSelected = selectedIds.has(visibleMessages[dragStartIdx.current]?.id);
+        dragMode.current = !initialSelected;
+      }
+      updateDragSelection(index);
+    }
+  };
+
+  const handleMessageMouseEnter = (index: number) => {
+    if (!isMouseDownRef.current || dragStartIdx.current === -1) return;
+    if (index !== dragStartIdx.current) {
+      cancelLongPress();
+      if (!isDraggingSelection.current) {
+        isDraggingSelection.current = true;
+        const initialSelected = selectedIds.has(visibleMessages[dragStartIdx.current]?.id);
+        dragMode.current = !initialSelected;
+      }
+      updateDragSelection(index);
+    }
+  };
+
+  const updateDragSelection = (currentIndex: number) => {
+    if (dragStartIdx.current === -1) return;
+    const start = Math.min(dragStartIdx.current, currentIndex);
+    const end = Math.max(dragStartIdx.current, currentIndex);
+
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       for (let i = 0; i < visibleMessages.length; i++) {
         if (i >= start && i <= end) {
-          if (dragMode.current) {
-            next.add(visibleMessages[i].id);
-          } else {
-            next.delete(visibleMessages[i].id);
-          }
+          if (dragMode.current) next.add(visibleMessages[i].id);
+          else next.delete(visibleMessages[i].id);
         }
       }
       return next;
     });
   };
 
+  const handleMessageTouchStart = (e: React.TouchEvent, messageId: string) => {
+    cancelLongPress();
+    const touch = e.touches[0];
+    if (!touch) return;
+    dragStartPos.current = { x: touch.clientX, y: touch.clientY };
+    longPressTimerRef.current = window.setTimeout(() => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(messageId)) next.delete(messageId);
+        else next.add(messageId);
+        return next;
+      });
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(40);
+      }
+    }, 500);
+  };
+
+  const handleMessageTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dist = Math.hypot(touch.clientX - dragStartPos.current.x, touch.clientY - dragStartPos.current.y);
+    if (dist > 8) {
+      cancelLongPress();
+    }
+  };
+
   const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    cancelLongPress();
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -517,7 +594,11 @@ const ChatView: React.FC = () => {
               key={msg.id}
               id={`msg-${msg.id}`}
               onMouseDown={(e) => handleMessageMouseDown(e, msg.id, index)}
-              onMouseEnter={(e) => handleMessageMouseEnter(msg.id, index)}
+              onMouseMove={(e) => handleMessageMouseMove(e, index)}
+              onMouseEnter={() => handleMessageMouseEnter(index)}
+              onTouchStart={(e) => handleMessageTouchStart(e, msg.id)}
+              onTouchMove={handleMessageTouchMove}
+              onTouchEnd={cancelLongPress}
               onContextMenu={(e) => handleMessageContextMenu(e, msg.id)}
               style={{
                 display: 'flex',
@@ -649,23 +730,23 @@ const ChatView: React.FC = () => {
       )}
 
       {selectedIds.size > 0 && (
-        <div style={{ 
-          position: 'absolute', 
-          bottom: showScrollDown ? '146px' : '86px', 
-          left: 0, 
-          right: 0, 
+        <div style={{
+          position: 'absolute',
+          bottom: showScrollDown ? '146px' : '86px',
+          left: 0,
+          right: 0,
           margin: '0 auto',
-          zIndex: 55, 
-          display: 'flex', 
-          alignItems: 'center', 
+          zIndex: 55,
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           flexWrap: 'wrap',
-          gap: '6px', 
-          padding: '8px 10px 8px 16px', 
-          borderRadius: '16px', 
-          background: 'var(--nj-panel, #fff)', 
-          border: '1px solid var(--nj-border, #dce9ea)', 
-          boxShadow: '0 18px 44px -14px rgba(10, 40, 46, 0.45)', 
+          gap: '6px',
+          padding: '8px 10px 8px 16px',
+          borderRadius: '16px',
+          background: 'var(--nj-panel, #fff)',
+          border: '1px solid var(--nj-border, #dce9ea)',
+          boxShadow: '0 18px 44px -14px rgba(10, 40, 46, 0.45)',
           animation: 'najva-rise 0.25s ease both',
           transition: 'bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
           maxWidth: '90vw',
