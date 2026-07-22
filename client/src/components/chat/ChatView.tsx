@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18n';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
