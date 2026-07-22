@@ -1,57 +1,34 @@
-<p align="center">
-  <a href="README.md">English</a> | <b>فارسی</b>
-</p>
+# نجوا مسنجر 🚀
 
-<div dir="rtl">
+[English Documentation](README.md)
 
-# najva-messenger
+نجوا یک پیام‌رسان امن و رمزنگاری‌شده سرتاسری (E2EE) با قابلیت تماس صوتی و تصویری و اشتراک‌گذاری فایل است.
 
-یک پیام‌رسان خود-میزبان، متن‌باز و کاملاً رمزنگاری‌شده سرتاسری (ایمن) — گپ متنی، تماس صوتی و تصویری، اشتراک‌گذاری فایل‌های رمزنگاری‌شده و اعلان‌های لحظه‌ای — که کاملاً روی سروری که خودتان کنترل می‌کنید اجرا می‌شود.
+---
 
-پیام‌ها پیش از خروج از دستگاه در مرورگر رمزنگاری می‌شوند و سرور هرگز کلیدی برای خواندن آن‌ها ندارد.
+## 🔒 نصب گواهی SSL و Root CA خودامضا
 
-## سرویس‌ها
+هنگام نصب نجوا بر روی آدرس IP (بدون دامنه)، سرور به‌طور خودکار یک **Root CA** ایجاد کرده و آن را در آدرس `http://<SERVER_IP>/ca.crt` قرار می‌دهد.
 
-پنج کانتینر در کنار هم توسط Docker Compose اجرا می‌شوند:
+برای رفع خطای عدم اعتبار گواهی (`NET::ERR_CERT_AUTHORITY_INVALID`) و فعال‌سازی دوربین و میکروفون:
 
-| سرویس | نقش |
-| --- | --- |
-| `client` | رابط کاربری سمت‌کاربر (React + Vite SPA) |
-| `server` | API اصلی مبتنی بر Express |
-| `media-server` | سرور اختصاصی mediasoup (SFU) برای تماس صوتی و تصویری |
-| `turn` | سرور coturn برای برقراری ارتباط در شبکه‌های دارای NAT |
-| `nginx` | مدیریت TLS، پروکسی API و WebSocket |
-
-بخش مدیریت از مسیر `/admin` (مانند `https://<domain_or_ip>/admin`) پس از ورود با حساب مدیر در دسترس است.
-
-## گواهی SSL اختصاصی و لینک دانلود CA (برای دسترسی با IP)
-
-در صورت عدم وجود دامنه، Najva به طور خودکار یک گواهی اختصاصی **Root CA** صادر می‌کند تا دوربین، میکروفون، پیام‌های صوتی و WebCrypto به صورت کاملاً امن زیر HTTPS کار کنند.
-
-- **لینک دانلود گواهی Root CA:** `http://<server_ip>/ca.crt`
-- **روش نصب در کلاینت:** لینک `http://<server_ip>/ca.crt` را باز کرده و فایل `najva-ca.crt` را دانلود کنید. سپس با دو بار کلیک، آن را در بخش **Trusted Root Certification Authorities** (ریشه گواهی‌های معتبر) نصب کنید. سپس می‌توانید با `https://<server_ip>` بدون هیچ هشدار امنیتی از تمام امکانات (تماس، میکروفون، دوربین) استفاده کنید.
-
-## نصب با یک دستور
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/MatinMHF/najva-messenger/main/install.sh | sudo bash
+### دستور تک‌خطی خودکار پاوارشل (ویندوز)
+پاورشل (PowerShell) را باز کرده و دستور زیر را اجرا کنید:
+```powershell
+Invoke-WebRequest -Uri "http://<SERVER_IP>/ca.crt" -OutFile "$env:TEMP\najva-ca.crt"; Import-Certificate -FilePath "$env:TEMP\najva-ca.crt" -CertStoreLocation Cert:\CurrentUser\Root
 ```
 
-پس از پایان نصب:
-- **آدرس پیام‌رسان:** `https://<domain_or_ip>`
-- **پنل مدیریت:** `https://<domain_or_ip>/admin`
-- **لینک دانلود گواهی CA:** `http://<server_ip>/ca.crt`
+### نصب دستی در ویندوز
+۱. فایل گواهی را از آدرس `http://<SERVER_IP>/ca.crt` دانلود کنید.
+۲. روی فایل `najva-ca.crt` دابل کلیک کنید $\rightarrow$ دکمه **Install Certificate...** را بزنید.
+۳. گزینه‌ی **Current User** را انتخاب کرده و **Next** را بزنید.
+۴. گزینه‌ی **Place all certificates in the following store** را انتخاب کرده و **Browse...** را بزنید.
+۵. پوشه‌ی **Trusted Root Certification Authorities** (*مراجع صدور گواهی ریشه معتبر*) را انتخاب کرده و **OK** $\rightarrow$ **Next** $\rightarrow$ **Finish** را بزنید.
+۶. مرورگر را مجدداً باز کرده و به آدرس `https://<SERVER_IP>` بروید.
 
-## منوی مدیریت (`najva`)
+---
 
-با اجرای دستور `sudo najva` منوی مدیریت باز می‌شود که گزینه‌های زیر را در اختیارتان قرار می‌دهد:
-- دریافت گواهی SSL رسمی (Let's Encrypt)
-- صدور گواهی SSL اختصاصی + لینک دانلود `/ca.crt`
-- بازنشانی حساب مدیر
-- بررسی بروزرسانی و وضعیت کانتینرها
+## 🔑 مسیر پنل مدیریت (Admin Panel)
 
-## لایسنس
-
-MIT
-
-</div>
+- **مسیر پنل مدیریت**: `/admin` (به عنوان مثال `https://<SERVER_IP>/admin`)
+- قابل دسترسی برای کاربرانی که دسترسی مدیریت دارند.
