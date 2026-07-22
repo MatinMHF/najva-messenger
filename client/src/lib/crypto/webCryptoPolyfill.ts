@@ -162,9 +162,9 @@ function aes256EncryptBlock(key: Uint8Array, block: Uint8Array): Uint8Array {
 
   const w = new Uint8Array(240);
   w.set(key, 0);
-  let temp = new Uint8Array(4);
+  const temp = new Uint8Array(4);
   for (let i = 8; i < 60; i++) {
-    temp.set(w.subarray((i - 1) * 4, i * 4));
+    for (let k = 0; k < 4; k++) temp[k] = w[(i - 1) * 4 + k];
     if (i % 8 === 0) {
       const t = temp[0]; temp[0] = temp[1]; temp[1] = temp[2]; temp[2] = temp[3]; temp[3] = t;
       temp[0] = S[temp[0]] ^ Rcon[i / 8];
