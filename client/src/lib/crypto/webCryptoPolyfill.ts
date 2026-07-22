@@ -10,6 +10,7 @@
  *  - PBKDF2-HMAC-SHA256
  *  - HKDF-SHA256
  *  - AES-256-GCM (CTR mode + tag verification)
+ *  - Key Generation & Storage Wrapping
  *
  * When loaded over HTTPS or localhost, native WebCrypto is preserved.
  */
@@ -249,6 +250,12 @@ function aes256CtrTransform(key: Uint8Array, iv12: Uint8Array, input: Uint8Array
   return output;
 }
 
+function randomPolyBytes(len: number): Uint8Array {
+  const b = new Uint8Array(len);
+  for (let i = 0; i < len; i++) b[i] = Math.floor(Math.random() * 256);
+  return b;
+}
+
 export function ensureWebCryptoPolyfill(): void {
   if (typeof globalThis.crypto === 'undefined') {
     (globalThis as any).crypto = {};
@@ -256,9 +263,16 @@ export function ensureWebCryptoPolyfill(): void {
   if (!globalThis.crypto.subtle) {
     console.warn('[Najva] WebCrypto API is disabled on unencrypted HTTP. Initializing pure JS WebCrypto polyfill.');
     (globalThis.crypto as any).subtle = {
+      generateKey: async (alg: any, _extractable: boolean, usages: string[]) => {
+        const raw = randomPolyBytes(32);
+        return { _raw: raw, algorithm: alg, extractable: true, usages, type: 'secret' };
+      },
       importKey: async (_format: string, keyData: any, algorithm: any) => {
         const raw = keyData instanceof Uint8Array ? keyData : new Uint8Array(keyData);
         return { _raw: raw, algorithm };
+      },
+      exportKey: async (_format: string, key: any) => {
+        return key._raw ? key._raw.buffer : new ArrayBuffer(0);
       },
       deriveBits: async (algorithm: any, baseKey: any, length: number) => {
         const numBytes = length / 8;
