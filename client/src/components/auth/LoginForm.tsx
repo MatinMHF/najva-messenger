@@ -38,6 +38,8 @@ const LoginForm: React.FC = () => {
   const [successKind, setSuccessKind] = useState<'signin' | 'passkey'>('signin');
   const [shaking, setShaking] = useState(false);
 
+  const isWebCryptoAvailable = !!globalThis.crypto?.subtle;
+
   const shakeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const navTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => { clearTimeout(shakeTimer.current); clearTimeout(navTimer.current); }, []);
@@ -57,11 +59,6 @@ const LoginForm: React.FC = () => {
     navTimer.current = setTimeout(() => navigate('/chat'), 1200);
   };
 
-  // Passkey login (docs/ENCRYPTION.md flow B). A PRF-capable passkey unlocks the
-  // master key passwordlessly; on a device that already cached the MK we reuse
-  // it. Only a fresh device with a NON-PRF passkey can't unlock — we route the
-  // user to a one-time password sign-in (which both authenticates and unlocks)
-  // rather than dropping them into a session where messages can't be decrypted.
   const handlePasskeyLogin = async () => {
     if (busy) return;
     setError('');
@@ -74,7 +71,7 @@ const LoginForm: React.FC = () => {
         mk = await unlockMkWithPasskey(result.credentialId, result.prfSalt, result.wrappedMk);
       }
       if (!mk) {
-        mk = await loadMasterKey(result.user.id); // returning-device cache
+        mk = await loadMasterKey(result.user.id);
       }
 
       if (!mk || !result.encryptedPrivateKeys) {
@@ -94,7 +91,6 @@ const LoginForm: React.FC = () => {
       succeed('passkey');
     } catch (err: any) {
       const name = err?.name;
-      // User cancelled the browser prompt — not an error worth shouting about.
       if (name === 'NotAllowedError' || name === 'AbortError') {
         setPhase('idle');
         return;
@@ -106,18 +102,20 @@ const LoginForm: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    // Validate in JS (not via native `required`) so an empty submit triggers the
-    // card shake + error, matching the design's own empty-field handling.
     if (!username.trim() || !password) {
       fail(t('auth.fill_fields'));
       return;
     }
+
+    if (!isWebCryptoAvailable) {
+      fail('مرورگر شما دسترسی WebCrypto را در اتصال HTTP غیرفعال کرده است. لطفاً از دامنه با HTTPS یا http://localhost استفاده کنید.');
+      return;
+    }
+
     setError('');
     setPhase('signing');
 
     try {
-      // Fetch this account's KDF params (enumeration-resistant: unknown users
-      // get a deterministic fake salt) and derive the loginKey + KEK locally.
       const params = await api.get('/auth/params', { params: { username } });
       const { loginKeyHex, kek } = await deriveLoginKey(
         password,
@@ -134,14 +132,11 @@ const LoginForm: React.FC = () => {
 
       const { user, tokens, mkPasswordWrapped, encryptedPrivateKeys } = response.data;
 
-      // Unwrap the master key with the KEK BEFORE authenticating: a failure
-      // here means the account material is unusable, so surface it instead of
-      // landing in a half-authenticated state. Identity secrets stay in memory.
       const unlocked = await unlockAccount({ kek, mkPasswordWrapped, encryptedPrivateKeys });
       setAuth(user, tokens.accessToken);
       setActiveIdentity(unlocked.identitySecret, unlocked.signingSecret);
       try {
-        await storeMasterKey(user.id, unlocked.mk); // best-effort on-device cache
+        await storeMasterKey(user.id, unlocked.mk);
         await storeBlob(user.id, 'encryptedPrivateKeys', encryptedPrivateKeys);
       } catch (cacheErr) {
         console.warn('Could not cache master key or private keys on this device:', cacheErr);
@@ -149,11 +144,11 @@ const LoginForm: React.FC = () => {
 
       succeed('signin');
     } catch (err: any) {
-      const msg = err.response?.data?.message;
+      const msg = err.response?.data?.message || err.message;
       fail(
-        msg === 'Invalid credentials' || msg === 'Invalid username or password' || !msg
+        msg === 'Invalid credentials' || msg === 'Invalid username or password'
           ? t('auth.login_error')
-          : msg,
+          : msg || t('auth.login_error'),
       );
     }
   };
@@ -191,6 +186,12 @@ const LoginForm: React.FC = () => {
         <h1>{t('auth.login_title')}</h1>
         <p>{t('auth.login_subtitle')}</p>
       </div>
+
+      {!isWebCryptoAvailable && (
+        <div className="najva-error" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171', marginBottom: '16px' }}>
+          ⚠️ برای رمزنگاری امن E2EE، مرورگر نیاز به اتصال HTTPS یا localhost دارد. روی HTTP معمولی با IP، رمزنگاری WebCrypto مرورگر غیرفعال است.
+        </div>
+      )}
 
       <form onSubmit={handleLogin} className="najva-form">
         <label className="najva-field">

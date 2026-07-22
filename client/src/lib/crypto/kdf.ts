@@ -2,7 +2,7 @@
  * Password / recovery-code / PRF key derivation (docs/ENCRYPTION.md).
  *
  * One slow PBKDF2 run per password, HKDF-split into two independent keys:
- *  - KEK      — wraps the Master Key; never leaves the client
+ *  - KEK    — wraps the Master Key; never leaves the client
  *  - loginKey — sent to the server instead of the password; server bcrypts it
  */
 import { hkdf, randomBytes } from './primitives';
@@ -25,7 +25,10 @@ export const deriveFromPassword = async (
   kekSalt: Uint8Array,
   iterations: number,
 ): Promise<PasswordKeys> => {
-  const subtle = globalThis.crypto.subtle;
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error('WebCrypto API (crypto.subtle) is disabled over plain HTTP IP access. Please access Najva via HTTPS or http://localhost.');
+  }
   const pwKey = await subtle.importKey('raw', utf8(password) as unknown as BufferSource, 'PBKDF2', false, ['deriveBits']);
   const prkBits = await subtle.deriveBits(
     { name: 'PBKDF2', hash: 'SHA-256', salt: kekSalt as unknown as BufferSource, iterations },
@@ -38,11 +41,6 @@ export const deriveFromPassword = async (
   prk.fill(0);
   return { kek, loginKeyHex: toHex(loginKey) };
 };
-
-// ---------------------------------------------------------------------------
-// Recovery codes: 16 random bytes, shown as Crockford base32
-// XXXXX-XXXXX-XXXXX-XXXXX-XXXXXX (26 chars).
-// ---------------------------------------------------------------------------
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
@@ -62,7 +60,6 @@ export const formatRecoveryCode = (code: Uint8Array): string => {
     }
   }
   if (bits > 0) out += CROCKFORD[(acc << (5 - bits)) & 31];
-  // 26 chars → groups of 5,5,5,5,6
   return [out.slice(0, 5), out.slice(5, 10), out.slice(10, 15), out.slice(15, 20), out.slice(20, 26)].join('-');
 };
 
@@ -90,20 +87,21 @@ export const parseRecoveryCode = (formatted: string): Uint8Array => {
   return new Uint8Array(out);
 };
 
-/** RWK — wraps the MK; one per recovery code. */
 export const deriveRecoveryWrapKey = (code: Uint8Array, wrapSalt: Uint8Array): Promise<Uint8Array> =>
   hkdf(code, wrapSalt, utf8('najva:mk:recovery:v1'), 32);
 
-/** Server-stored verifier. Domain-separated from the wrap-key derivation. */
 export const recoveryVerifierHash = async (code: Uint8Array): Promise<string> => {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error('WebCrypto API (crypto.subtle) is disabled over plain HTTP IP access. Please access Najva via HTTPS or http://localhost.');
+  }
   const prefix = utf8('najva:rc:verify:v1');
   const input = new Uint8Array(prefix.length + code.length);
   input.set(prefix, 0);
   input.set(code, prefix.length);
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', input as unknown as BufferSource);
+  const digest = await subtle.digest('SHA-256', input as unknown as BufferSource);
   return toHex(new Uint8Array(digest));
 };
 
-/** PWK — wraps the MK for a PRF-capable passkey. */
 export const derivePrfWrapKey = (prfOutput: Uint8Array, prfSalt: Uint8Array): Promise<Uint8Array> =>
   hkdf(prfOutput, prfSalt, utf8('najva:mk:prf:v1'), 32);
