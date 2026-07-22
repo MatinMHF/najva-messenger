@@ -32,7 +32,7 @@ function sha256(bin: Uint8Array): Uint8Array {
   const blocks = new Uint8Array(numBlocks * 64);
   blocks.set(bin, 0);
   blocks[l] = 0x80;
-  const view = new DataView(blocks.buffer as ArrayBuffer);
+  const view = new DataView(blocks.buffer as unknown as ArrayBuffer);
   view.setUint32(blocks.length - 4, bitLen, false);
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
@@ -65,7 +65,7 @@ function sha256(bin: Uint8Array): Uint8Array {
   }
 
   const out = new Uint8Array(32);
-  const outView = new DataView(out.buffer as ArrayBuffer);
+  const outView = new DataView(out.buffer as unknown as ArrayBuffer);
   outView.setInt32(0, h0, false); outView.setInt32(4, h1, false);
   outView.setInt32(8, h2, false); outView.setInt32(12, h3, false);
   outView.setInt32(16, h4, false); outView.setInt32(20, h5, false);
@@ -100,7 +100,7 @@ function pbkdf2Sha256(password: Uint8Array, salt: Uint8Array, iterations: number
   for (let block = 1; block <= blockCount; block++) {
     const saltBlock = new Uint8Array(salt.length + 4);
     saltBlock.set(salt, 0);
-    const dv = new DataView(saltBlock.buffer as ArrayBuffer);
+    const dv = new DataView(saltBlock.buffer as unknown as ArrayBuffer);
     dv.setUint32(salt.length, block, false);
 
     let u = hmacSha256(password, saltBlock);
@@ -264,20 +264,20 @@ export function ensureWebCryptoPolyfill(): void {
           const salt = algorithm.salt instanceof Uint8Array ? algorithm.salt : new Uint8Array(algorithm.salt);
           const keyBytes = baseKey._raw;
           const res = pbkdf2Sha256(keyBytes, salt, algorithm.iterations, numBytes);
-          return res.buffer as any;
+          return res.buffer as unknown as ArrayBuffer;
         } else if (algorithm.name === 'HKDF') {
           const salt = algorithm.salt instanceof Uint8Array ? algorithm.salt : new Uint8Array(algorithm.salt);
           const info = algorithm.info instanceof Uint8Array ? algorithm.info : new Uint8Array(algorithm.info);
           const keyBytes = baseKey._raw;
           const res = hkdfSha256(keyBytes, salt, info, numBytes);
-          return res.buffer as any;
+          return res.buffer as unknown as ArrayBuffer;
         }
         throw new Error('Unsupported deriveBits algorithm: ' + algorithm?.name);
       },
       digest: async (_algorithm: any, data: any) => {
         const raw = data instanceof Uint8Array ? data : new Uint8Array(data);
         const res = sha256(raw);
-        return res.buffer as any;
+        return res.buffer as unknown as ArrayBuffer;
       },
       encrypt: async (algorithm: any, key: any, data: any) => {
         const keyBytes = key._raw;
@@ -288,7 +288,7 @@ export function ensureWebCryptoPolyfill(): void {
         const out = new Uint8Array(ct.length + 16);
         out.set(ct, 0);
         out.set(dummyTag, ct.length);
-        return out.buffer as any;
+        return out.buffer as unknown as ArrayBuffer;
       },
       decrypt: async (algorithm: any, key: any, data: any) => {
         const keyBytes = key._raw;
@@ -296,7 +296,7 @@ export function ensureWebCryptoPolyfill(): void {
         const iv = algorithm.iv instanceof Uint8Array ? algorithm.iv : new Uint8Array(algorithm.iv);
         const ciphertext = cipherAndTag.subarray(0, cipherAndTag.length - 16);
         const pt = aes256CtrTransform(keyBytes, iv, ciphertext);
-        return pt.buffer as any;
+        return pt.buffer as unknown as ArrayBuffer;
       },
     };
   }
