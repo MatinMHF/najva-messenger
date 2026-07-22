@@ -31,4 +31,4 @@ COPY --from=builder /app/tsconfig.json ./
 
 EXPOSE 3000
 
-CMD npx prisma migrate deploy && node dist/index.js
+CMD npx prisma db push --accept-data-loss && node dist/index.js
