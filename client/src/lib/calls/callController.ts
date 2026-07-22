@@ -32,10 +32,6 @@ async function joinAndProduce(conversationId: string, type: CallType): Promise<v
   for (const track of local.getTracks()) {
     await sfu.produce(track, track.kind === 'audio' ? 'mic' : 'cam');
   }
-  // NOT 'active' here: producing our OWN media says nothing about the callee
-  // answering. Marking active here made the caller ignore `call:rejected`
-  // (its guard only fires while outgoing/connecting), so a rejected call never
-  // hung up. 'active' comes from `call:accepted` / the first remote track.
 }
 
 export async function startCall(conversationId: string, type: CallType): Promise<void> {
@@ -48,7 +44,7 @@ export async function startCall(conversationId: string, type: CallType): Promise
     await joinAndProduce(conversationId, type);
   } catch (e) {
     console.error('startCall failed:', e);
-    if ((e as any)?.name && String((e as any).name).includes('Error')) alert(mediaErrorMessage(e));
+    alert(mediaErrorMessage(e));
     endCall();
   }
 }
@@ -62,6 +58,7 @@ export async function acceptCall(): Promise<void> {
     await joinAndProduce(inc.conversationId, inc.type);
   } catch (e) {
     console.error('acceptCall failed:', e);
+    alert(mediaErrorMessage(e));
     endCall();
   }
 }
@@ -103,6 +100,10 @@ export async function toggleScreenShare(): Promise<void> {
     store.setScreenSharing(false);
     return;
   }
+  if (!navigator?.mediaDevices?.getDisplayMedia) {
+    alert('Screen sharing requires HTTPS or a supported browser.');
+    return;
+  }
   try {
     const display = await (navigator.mediaDevices as any).getDisplayMedia({ video: true });
     const track: MediaStreamTrack = display.getVideoTracks()[0];
@@ -142,9 +143,6 @@ export function registerCallSignaling(): void {
     if (s.conversationId === conversationId && s.status !== 'idle') s.setStatus('active');
   });
   socket.on('call:rejected', () => {
-    // Hang up whenever nobody has actually joined yet — don't key off `status`,
-    // which can already be 'active' once a peer is in (group call: one member
-    // declining must not tear down a call others are already in).
     const s = useCallStore.getState();
     if (s.status !== 'idle' && Object.keys(s.remotePeers).length === 0) endCall();
   });

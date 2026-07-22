@@ -12,6 +12,24 @@ function namedError(name: string, message: string): Error {
  */
 function gum(constraints: MediaStreamConstraints): Promise<MediaStream> {
   let timedOut = false;
+
+  const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+  if (!nav?.mediaDevices?.getUserMedia) {
+    // Check for legacy vendor getUserMedia APIs
+    const legacyGUM = nav?.getUserMedia || nav?.webkitGetUserMedia || nav?.mozGetUserMedia || nav?.msGetUserMedia;
+    if (legacyGUM) {
+      return new Promise<MediaStream>((resolve, reject) => {
+        legacyGUM.call(navigator, constraints, resolve, reject);
+      });
+    }
+    return Promise.reject(
+      namedError(
+        'NotSupportedError',
+        'Camera and microphone access is restricted by browsers on unencrypted HTTP (IP access). Access via HTTPS or localhost to enable voice & video.'
+      )
+    );
+  }
+
   const real = navigator.mediaDevices.getUserMedia(constraints).then((s) => {
     if (timedOut) { s.getTracks().forEach((t) => t.stop()); throw namedError('AbortError', 'stream resolved after timeout'); }
     return s;
@@ -29,11 +47,7 @@ function gum(constraints: MediaStreamConstraints): Promise<MediaStream> {
  * where the mic and camera share a driver reject the combined open with
  * `NotReadableError` even though each device works alone; there (and only
  * there) we fall back to acquiring the two devices separately and merging.
- *
- * (An earlier version did the split unconditionally — it fixed Edge but made
- * Chrome hang, because the second sequential getUserMedia stalls there.)
  */
-/** Drop deviceId pins so the request falls back to the default devices. */
 function stripPins(c: MediaStreamConstraints): MediaStreamConstraints {
   const strip = (v: MediaStreamConstraints['audio']) =>
     typeof v === 'object' && v !== null && 'deviceId' in v ? true : v;
@@ -49,7 +63,11 @@ function stripPins(c: MediaStreamConstraints): MediaStreamConstraints {
  */
 async function tryEachCamera(constraints: MediaStreamConstraints, orig: unknown): Promise<MediaStream> {
   let cams: MediaDeviceInfo[] = [];
-  try { cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput'); } catch { /* enumerate unavailable */ }
+  try {
+    if (navigator?.mediaDevices?.enumerateDevices) {
+      cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    }
+  } catch { /* enumerate unavailable */ }
   const failedId = typeof constraints.video === 'object' ? (constraints.video.deviceId as any)?.exact : undefined;
   for (const cam of cams) {
     if (!cam.deviceId || cam.deviceId === failedId) continue;
@@ -65,8 +83,6 @@ const isVideoTimeout = (err: any, c: MediaStreamConstraints) =>
   !!c.video && (err?.name === 'AbortError' || err?.name === 'TimeoutError');
 
 export async function getMediaStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
-  // Single-device requests (audio-only or video-only) have nothing to split,
-  // but still deserve the missing/wedged-device fallbacks.
   if (!constraints.video || !constraints.audio) {
     try {
       return await gum(constraints);
@@ -83,13 +99,10 @@ export async function getMediaStream(constraints: MediaStreamConstraints): Promi
   try {
     return await gum(constraints);
   } catch (err: any) {
-    // Saved device no longer exists (unplugged / other-profile id) — retry
-    // once with the pins stripped so we use the defaults instead of failing.
     if (err?.name === 'OverconstrainedError') {
       console.warn('[media] pinned device unavailable, retrying with defaults');
       return gum(stripPins(constraints));
     }
-    // Chrome "Timeout starting video source" — rotate through other cameras.
     if (isVideoTimeout(err, constraints)) return tryEachCamera(constraints, err);
     if (err?.name !== 'NotReadableError') {
       console.warn('[media] getUserMedia failed:', err?.name, err?.message);
@@ -101,26 +114,17 @@ export async function getMediaStream(constraints: MediaStreamConstraints): Promi
       const audio = await gum({ audio: constraints.audio });
       return new MediaStream([...video.getVideoTracks(), ...audio.getAudioTracks()]);
     } catch (e) {
-      // Don't leave the camera open with nothing referencing it.
       video.getTracks().forEach((t) => t.stop());
       throw e;
     }
   }
 }
 
-// deviceId is pinned with `exact`: `ideal` is only a hint and browsers (Edge
-// observed) will silently pick a different camera, which defeats the Settings
-// choice. If the exact device is absent (unplugged / id from another browser
-// profile), getMediaStream catches the OverconstrainedError and retries once
-// with the pin stripped, so it degrades to the default instead of failing.
-
-/** Audio constraint honoring the microphone chosen in Settings (localStorage). */
 export function savedAudioConstraint(): MediaTrackConstraints | boolean {
   const saved = window.localStorage.getItem('najva-micIn');
   return saved && saved !== 'System default' && saved !== 'Built-in microphone' ? { deviceId: { exact: saved } } : true;
 }
 
-/** Video constraint honoring the camera chosen in Settings (localStorage). */
 export function savedVideoConstraint(): MediaTrackConstraints | boolean {
   const saved = window.localStorage.getItem('najva-camDev');
   return saved && saved !== 'System default' ? { deviceId: { exact: saved } } : true;
@@ -129,6 +133,13 @@ export function savedVideoConstraint(): MediaTrackConstraints | boolean {
 /** Human-readable reason for a getUserMedia failure, for user-facing messages. */
 export function mediaErrorMessage(err: any): string {
   switch (err?.name) {
+    case 'NotSupportedError':
+      return err?.message || 'Camera and microphone require HTTPS or localhost. Browser security rules block audio/video on unencrypted HTTP IP addresses.';
+    case 'TypeError':
+      if (typeof navigator !== 'undefined' && !navigator?.mediaDevices?.getUserMedia) {
+        return 'Camera and microphone access is disabled by the browser over unencrypted HTTP (IP access). Access via HTTPS or localhost to enable voice & video.';
+      }
+      return 'Could not access media devices on this browser or connection.';
     case 'NotReadableError':
       return 'Could not start the camera or microphone. It may be in use by another app or browser tab — close those and try again.';
     case 'NotAllowedError':
@@ -141,6 +152,9 @@ export function mediaErrorMessage(err: any): string {
     case 'TimeoutError':
       return 'The camera did not respond (no working camera could be started). Close other apps using it, pick a different camera in Settings, or reconnect the device.';
     default:
-      return 'Could not access the camera or microphone.';
+      if (typeof navigator !== 'undefined' && !navigator?.mediaDevices?.getUserMedia) {
+        return 'Camera and microphone access is disabled by the browser over unencrypted HTTP (IP access). Access via HTTPS or localhost to enable voice & video.';
+      }
+      return err?.message || 'Could not access the camera or microphone.';
   }
 }
